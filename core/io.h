@@ -1,6 +1,38 @@
 #ifndef IO_H
 #define IO_H
 
+// MIT License
+// 
+// Copyright (c) 2024 Justin Schartner
+// 
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+// 
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+// 
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
+#ifndef IO_ALLOC
+#  include <stdlib.h>
+#  define IO_ALLOC malloc
+#endif // IO_ALLOC
+
+#ifndef IO_FREE
+#  include <stdlib.h>
+#  define IO_FREE free
+#endif // IO_FREE
+
 #ifdef _WIN32
 #  include <windows.h>
 
@@ -39,6 +71,9 @@ typedef unsigned long long int Io_u64;
 
 typedef enum {
   IO_ERROR_NONE = 0,
+
+  IO_ERROR_ALLOC_FAILED,
+  
   IO_ERROR_EOF,
   IO_ERROR_FILE_NOT_FOUND,
   IO_ERROR_INVALID_NAME,
@@ -80,6 +115,14 @@ IO_DEF Io_Error io_file_read(Io_File *f,
 			     u64 *read);
   
 IO_DEF void io_file_close(Io_File *f);
+
+
+IO_DEF Io_Error io_slurp_file(u8 *name,
+			      u64 name_len,
+			      u8 **data,
+			      u64 *data_len);
+#define io_slurp_filec(cstr, d, ds) io_slurp_file((cstr), strlen((cstr)), (d), (ds))
+#define io_slurp_files(cstr, d, ds) io_slurp_file((s).data, (s).data, (d), (ds))
 
 #ifdef IO_IMPLEMENTATION
 
@@ -256,6 +299,45 @@ IO_DEF void io_file_close(Io_File *f) {
 }
 
 #endif // _WIN32
+
+IO_DEF Io_Error io_slurp_file(u8 *name,
+			      u64 name_len,
+			      u8 **_data,
+			      u64 *_data_len) {
+  Io_Error error;
+  
+  Io_File file;
+  error = io_file_ropen(&file, name, name_len);
+  if(error != IO_ERROR_NONE) {
+    return error;
+  }
+
+  u8 *data = IO_ALLOC(file.size);
+  if(!data) {
+    io_file_close(&file);
+    return IO_ERROR_ALLOC_FAILED;
+  }  
+
+  u64 data_len = 0;  
+  while(data_len < file.size) {
+
+    u64 read;
+    error = io_file_read(&file, data + data_len, file.size - data_len, &read);
+    if(error != IO_ERROR_NONE) {
+      io_file_close(&file);
+      IO_FREE(data);
+      return error;
+    }
+
+    data_len += read;
+    
+  }
+
+  *_data     = data;
+  *_data_len = data_len;
+  
+  return IO_ERROR_NONE;
+}
 
 #endif //IO_IMPLEMENTATION
 

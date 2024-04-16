@@ -1,15 +1,5 @@
 #include <stdio.h>
 
-#define panic(...) do{						\
-    fprintf(stderr, "%s:%d:ERROR: ", __FILE__, __LINE__);	\
-    fflush(stderr);						\
-    fprintf(stderr, __VA_ARGS__); fflush(stderr);		\
-    exit(1);							\
-  }while(0)
-
-#define UNREACHABLE() panic("UNREACHABLE")
-#define TODO() panic("TODO")
-
 #define IP_IMPLEMENTATION
 #include <core/ip.h>
 
@@ -21,6 +11,8 @@
 
 #define STR_IMPLEMENTATION
 #include <core/str.h>
+
+#include <core/types.h>
 
 typedef unsigned long long int u64;
 
@@ -187,9 +179,9 @@ typedef struct {
 #define MAX_INACTIVE_CYCLES_MS 1000
 
 #ifdef _MSC_VER
-#  define MAX_INACTIVE_CYCLES MAX_INACTIVE_CYCLES / 20 // why ?
+#  define MAX_INACTIVE_CYCLES MAX_INACTIVE_CYCLES_MS / 20 // why ?
 #else
-#  define MAX_INACTIVE_CYCLES MAX_INACTIVE_CYCLES
+#  define MAX_INACTIVE_CYCLES MAX_INACTIVE_CYCLES_MS
 #endif // _MSC_VER
 
 Session sessions[N] = {0};
