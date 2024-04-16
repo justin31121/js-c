@@ -254,8 +254,6 @@ int main(int argc, char **argv) {
 	continue;
       }
 
-      printf("inactive_cycles:%llu = %llu\n", i, sessions[i].inactive_cycles); fflush(stdout);
-
       if(sessions[i].inactive_cycles >= MAX_INACTIVE_CYCLES) {
 
 	if(ip_socket_address(socket, &address) != IP_ERROR_NONE) {
