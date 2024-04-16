@@ -33,6 +33,8 @@
 #  define IO_FREE free
 #endif // IO_FREE
 
+#include <stdio.h>
+
 #ifdef _WIN32
 #  include <windows.h>
 
@@ -113,6 +115,7 @@ IO_DEF Io_Error io_file_read(Io_File *f,
 			     u8 *buf,
 			     u64 len,
 			     u64 *read);
+IO_DEF Io_Error io_file_seek(Io_File *f, u64 offset);
   
 IO_DEF void io_file_close(Io_File *f);
 
@@ -215,6 +218,16 @@ IO_DEF Io_Error io_file_read(Io_File *f,
     }
   }
   
+}
+
+IO_DEF Io_Error io_file_seek(Io_File *f, u64 offset) {
+  
+  f->pos = SetFilePointer(f->handle, offset, NULL, FILE_BEGIN);
+  if(f->pos == INVALID_SET_FILE_POINTER) {
+    return io_error_last();
+  }
+    
+  return IO_ERROR_NONE;
 }
 
 IO_DEF void io_file_close(Io_File *f) {
