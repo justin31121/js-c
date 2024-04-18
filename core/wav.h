@@ -24,6 +24,7 @@
 // SOFTWARE.
 
 #include <stdlib.h>
+#include <stddef.h>
 
 #ifndef WAV_DEF
 #  define WAV_DEF static inline
@@ -151,11 +152,11 @@ u32 __wav_format_to_bytes_per_sample[] = {
 };
 
 Wav_Header __wav_header_default = {
-  .RIFF = "RIFF",
+  .RIFF = { 'R', 'I', 'F', 'F' },
   // .file_size,
-  .WAVE = "WAVE",
+  .WAVE = { 'W', 'A', 'V', 'E' },
   
-  .fmt = "fmt ",
+  .fmt = { 'f', 'm', 't', ' ' },
   .fmt_len = (u32) 16,
   // .fmt_tag
   // .channels;
@@ -164,7 +165,7 @@ Wav_Header __wav_header_default = {
   // .block_align;
   // .bits_per_sample;
 
-  .data = "data",
+  .data = { 'd', 'a', 't', 'a' } ,
   // .data_size,
 };
 
@@ -249,6 +250,18 @@ WAV_DEF int wav_decoder_open(Wav_Decoder *w,
   if(!w->read(w->opaque, (u8 *) &h, sizeof(h))) {
     return 0;
   }
+
+  // Maybe add more constraints?
+  if(wav_memcmp(&h.RIFF, &__wav_header_default.RIFF, sizeof(h.RIFF)) != 0) {
+    return 0;
+  }
+  if(wav_memcmp(&h.WAVE, &__wav_header_default.WAVE, sizeof(h.fmt)) != 0) {
+    return 0;
+  }
+  if(wav_memcmp(&h.fmt, &__wav_header_default.fmt, sizeof(h.fmt)) != 0) {
+    return 0;
+  }
+  
   w->channels = h.channels;
   w->sample_rate = h.sample_rate;
   w->format = h.fmt_tag;
@@ -256,7 +269,7 @@ WAV_DEF int wav_decoder_open(Wav_Decoder *w,
   if(wav_memcmp(h.data, "data", 4) != 0) {
     u32 size_to_skip = h.data_size;
 
-    if(!w->seek(w->opaque, sizeof(h) + size_to_skip)) {
+    if(!w->seek(w->opaque, sizeof(h) + size_to_skip)) {      
       return 0;
     }
     if(!w->read(w->opaque, (u8 *) &h.data, sizeof(h.data) + sizeof(h.data_size))) {

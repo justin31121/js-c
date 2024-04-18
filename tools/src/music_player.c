@@ -30,7 +30,7 @@ int wav_io_read(void *opaque, u8 *data, u64 len) {
 }
 
 int wav_io_seek(void *opaque, u64 offset) {
-  return 0;
+  return io_file_seek((Io_File *) opaque, offset) == IO_ERROR_NONE;
 }
 
 int main(s32 argc, char **argv) {
@@ -70,9 +70,9 @@ int main(s32 argc, char **argv) {
 
   Wav_Decoder decoder;
   if(wav_decoder_open(&decoder,
-		       &file,
-		       wav_io_read,
-		       wav_io_seek)) {
+		      &file,
+		      wav_io_read,
+		      wav_io_seek)) {
     kind = KIND_WAV;
   } else {
     
@@ -90,17 +90,16 @@ int main(s32 argc, char **argv) {
 
   mp3dec_t mp3d;
   mp3dec_init(&mp3d);
-  mp3dec_frame_info_t info; 
-  s32 mp3_samples = mp3dec_decode_frame(&mp3d, buf, buf_len, sample_buf[current_sample_buf], &info);
+  mp3dec_frame_info_t info;
+  s32 mp3_samples = mp3dec_decode_frame(&mp3d, buf, (s32) buf_len, sample_buf[current_sample_buf], &info);
   if(mp3_samples > 0 && info.frame_bytes > 0) {
     // Found mp3 sample in file
     kind = KIND_MP3;
-  }
-  
-  printf("mp3_samples: %d\n", mp3_samples); fflush(stdout);
+  } 
 
-  Audio_Fmt fmt;
-  int channels, sample_rate;
+  Audio_Fmt fmt = 0;
+  int channels = 0;
+  int sample_rate = 0;
   switch(kind) {
   case KIND_UNKNOWN:
     fprintf(stderr, "ERROR: Unrecognized file format. Currently supported is WAV and MP3\n");
@@ -118,7 +117,8 @@ int main(s32 argc, char **argv) {
     channels = decoder.channels;
     sample_rate = decoder.sample_rate;
     break;
-  case KIND_MP3:    
+  case KIND_MP3:
+    buf_len = 0;
     if(io_file_seek(&file, 0) != IO_ERROR_NONE) {
       TODO();
     }
@@ -134,7 +134,7 @@ int main(s32 argc, char **argv) {
     TODO();
   }
   
-  u32 samples;
+  u32 samples = 0;
   while(1) {
 
     int stop_decoding = 0;
@@ -151,9 +151,25 @@ int main(s32 argc, char **argv) {
       }
       break;
     case KIND_MP3:
-      buf_len = 0;
+      
+      u64 to_read = sizeof(buf) - buf_len;
+      u64 read;
+      if(io_file_read(&file, buf + buf_len, to_read, &read) != IO_ERROR_NONE) {
+	TODO();
+      }
+      buf_len += read;
 
-      TODO();
+      samples = (u32) mp3dec_decode_frame(&mp3d,
+					  buf,
+					  (s32) buf_len,
+					  sample_buf[current_sample_buf],
+					  &info);
+      if(samples == 0) {
+	stop_decoding = 1;
+      }
+      
+      buf_len -= (u64) info.frame_bytes;
+      memmove(buf, buf + info.frame_bytes, buf_len);
       
       break;
     }

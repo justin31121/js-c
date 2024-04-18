@@ -531,7 +531,7 @@ MUI_DEF void mui_text_wrapped(Mui *m,
     
     len = 0;
     text_size.x = 0.f;
-    int broke = 0;
+    u64 broke = 0;
     
     while(text_size.x < size.x && off + len < text_len) {
       len++;

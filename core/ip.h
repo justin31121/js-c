@@ -298,7 +298,7 @@ IP_DEF Ip_Error ip_socket_address(Ip_Socket *s, Ip_Address *a) {
 }
 
 IP_DEF Ip_Error ip_socket_read(Ip_Socket *s, u8 *buf, u64 buf_len, u64 *read) {
-  s32 ret = recv(s->_socket, (char *) buf, buf_len, 0);
+  s32 ret = recv(s->_socket, (char *) buf, (s32) buf_len, 0);
   if(ret < 0) {
     return ip_error_last();
   } else if(ret == 0) {
@@ -310,7 +310,7 @@ IP_DEF Ip_Error ip_socket_read(Ip_Socket *s, u8 *buf, u64 buf_len, u64 *read) {
 }
 
 IP_DEF Ip_Error ip_socket_write(Ip_Socket *s, u8 *buf, u64 buf_len, u64 *written) {
-  s32 ret = send(s->_socket, (char *) buf, buf_len, 0);
+  s32 ret = send(s->_socket, (char *) buf, (s32) buf_len, 0);
   if(ret < 0) {
     return ip_error_last();
   } else if(ret == 0) {
@@ -421,7 +421,7 @@ IP_DEF Ip_Error ip_server_next(Ip_Server *s,
     timeout.tv_sec  = 0;
     timeout.tv_usec = 1;
     
-    s->ret = select(s->sockets_count,
+    s->ret = select(0,
 		    (fd_set *) &s->set,
 		    NULL,
 		    NULL,

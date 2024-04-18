@@ -108,7 +108,7 @@ IO_DEF Io_Error io_file_stdin(Io_File *f);
 IO_DEF Io_Error io_file_ropen(Io_File *f,
 			      u8 *name,
 			      u64 name_len);
-#define io_file_ropenc(f, n) io_file_ropen((f), (n), strlen(n))
+#define io_file_ropenc(f, n) io_file_ropen((f), (u8 *) (n), strlen(n))
 #define io_file_ropens(f, s) io_file_ropen((f), (s).data, (s).len)
 
 IO_DEF Io_Error io_file_read(Io_File *f,
@@ -124,8 +124,10 @@ IO_DEF Io_Error io_slurp_file(u8 *name,
 			      u64 name_len,
 			      u8 **data,
 			      u64 *data_len);
-#define io_slurp_filec(cstr, d, ds) io_slurp_file((cstr), strlen((cstr)), (d), (ds))
+#define io_slurp_filec(cstr, d, ds) io_slurp_file((u8 *) (cstr), strlen((cstr)), (d), (ds))
 #define io_slurp_files(cstr, d, ds) io_slurp_file((s).data, (s).data, (d), (ds))
+IO_DEF int io_exists(u8 *name, u64 name_len, int *is_file);
+#define io_existsc(cstr, f) io_exists((u8 *) (cstr), strlen(cstr), f)
 
 #ifdef IO_IMPLEMENTATION
 
@@ -172,7 +174,7 @@ IO_DEF Io_Error io_file_ropen(Io_File *f,
 			      u64 name_len) {
   
   wchar_t filepath[MAX_PATH];
-  int n = MultiByteToWideChar(CP_UTF8, 0, (char *) name, name_len, filepath, IO_MAX_PATH);
+  int n = MultiByteToWideChar(CP_UTF8, 0, (char *) name, (s32) name_len, filepath, IO_MAX_PATH);
   filepath[n] = 0;
 
   f->handle = CreateFileW(filepath,
@@ -205,7 +207,7 @@ IO_DEF Io_Error io_file_read(Io_File *f,
 
   DWORD bytes_read;
   
-  if(!ReadFile(f->handle, buf, len, &bytes_read, NULL)) {
+  if(!ReadFile(f->handle, buf, (DWORD) len, &bytes_read, NULL)) {
     return io_error_last();
   } else {    
     *read = (u64) bytes_read;
@@ -222,7 +224,7 @@ IO_DEF Io_Error io_file_read(Io_File *f,
 
 IO_DEF Io_Error io_file_seek(Io_File *f, u64 offset) {
   
-  f->pos = SetFilePointer(f->handle, offset, NULL, FILE_BEGIN);
+  f->pos = SetFilePointer(f->handle, (LONG) offset, NULL, FILE_BEGIN);
   if(f->pos == INVALID_SET_FILE_POINTER) {
     return io_error_last();
   }
@@ -233,6 +235,18 @@ IO_DEF Io_Error io_file_seek(Io_File *f, u64 offset) {
 IO_DEF void io_file_close(Io_File *f) {
   
   CloseHandle(f->handle);
+  
+}
+
+IO_DEF int io_exists(u8 *name, u64 name_len, int *is_file) {
+
+  wchar_t filepath[MAX_PATH];
+  int n = MultiByteToWideChar(CP_UTF8, 0, (char *) name, (s32) name_len, filepath, IO_MAX_PATH);
+  filepath[n] = 0;
+  
+  DWORD attribs = GetFileAttributesW(filepath);  
+  if(is_file) *is_file = !(attribs & FILE_ATTRIBUTE_DIRECTORY);  
+  return attribs != INVALID_FILE_ATTRIBUTES;
   
 }
 

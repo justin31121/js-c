@@ -33,12 +33,12 @@ int load_font(char *font_file_path,
   char *bitmap = NULL;   // malloc
   f->glyphs = NULL;      // malloc
   
-  if(io_slurp_filec(font_file_path, &ttf_data, &ttf_data_len) != IO_ERROR_NONE) {
+  if(io_slurp_filec(font_file_path, (u8 **) &ttf_data, &ttf_data_len) != IO_ERROR_NONE) {
     return_defer(0);
   }
 
   stbtt_fontinfo font_info;
-  if (!stbtt_InitFont(&font_info, ttf_data, 0)) {
+  if (!stbtt_InitFont(&font_info, (const unsigned char *) ttf_data, 0)) {
     return_defer(0);
   }
   float scale = stbtt_ScaleForPixelHeight(&font_info, font_height);
@@ -81,13 +81,13 @@ int load_font(char *font_file_path,
   }
   f->glyphs_len = NUMBER_OF_GLYPHS;
   f->size = font_height;
-  f->margin = ceilf(font_height * 1.25);    
+  f->margin = ceilf(font_height * 1.25f);    
 
   x = 1;
   y = 1;
   int bottom_y = 1;
   for(int i=0;i<NUMBER_OF_GLYPHS;i++) {
-    char c = ' ' + i; 
+    char c = ' ' + (char) i;
 
     int glyph = stbtt_FindGlyphIndex(&font_info, c);
     
@@ -117,10 +117,10 @@ int load_font(char *font_file_path,
       stbtt_GetCodepointSDF(&font_info, scale, c, PADDING, 128, 256.0, &bw, &bh, &bx, &by);
     //stbtt_GetCodepointBitmap(&font_info, 0, scale, mc, &mw, &mh, &mx, &my);
     
-    for (int j=0;j<glyph_height;++j) {
-      for (int i=0;i<glyph_width; ++i) {
-	if(glyph_bitmap && i<bw && j<bh) {
-	  bitmap[(y + j)*width + (x + i)] = glyph_bitmap[j*bw+i];
+    for (int q=0;q<glyph_height;++q) {
+      for (int p=0;p<glyph_width; ++p) {
+	if(glyph_bitmap && p<bw && q<bh) {
+	  bitmap[(y + q)*width + (x + p)] = glyph_bitmap[q*bw+p];
 	}
       }
     }
@@ -146,8 +146,8 @@ int load_font(char *font_file_path,
   if(!renderer_texture_create(&f->texture,
 			      r,
 			      bitmap,
-			      width,
-			      height,
+			      (f32) width,
+			      (f32) height,
 			      1)) {
     return_defer(0);
   }
@@ -230,7 +230,7 @@ void bar_update_render(Bar *b,
 
   Mui_Vec4f plus_color = mui_vec4f(plus_grey, plus_grey, plus_grey, 1.0f);
   mui_rect(m, plus_pos, sign_size, plus_color);
-  float foo = sign_size.y * 0.25;
+  float foo = sign_size.y * 0.25f;
   mui_rect(m,
 	   mui_vec2f(plus_pos.x + sign_size.x/2 - sign_size.y/2,
 		     plus_pos.y + sign_size.y/2 - foo/2),
@@ -290,12 +290,12 @@ void bar_update_render(Bar *b,
 			 pos.y + size.y/2 - KNOB_SIZE.y/2);
   }
 
-  float grey = 1.0;
+  float grey = 1.0f;
   if(mouse_in_knob || b->dragging) {
-    grey = .8;
+    grey = .8f;
   }
   else if(mui_point_in_rect(mouse, pos, size)) {
-    grey = .9;
+    grey = .9f;
   }
 
   Mui_Vec4f knob_color = color;
@@ -349,12 +349,7 @@ int main() {
 		      font.glyphs_len);
   mui.render = mui_render;
   mui.render_userdata = &renderer;
-
-  float bar_p = 0.2f;
-  Mui_Vec2f bar_size = mui_vec2f(400.f, 8.f);
-  Mui_Vec2f bar_knob_size = mui_vec2f(16.f, 16.f);
-  int bar_knob_dragging = 0;
-
+  
   Bar bar_hue	     = { .dragging = 0, .p = 1.0f, .clicking_up = 0, .clicking_down = 0 };
   Bar bar_saturation = { .dragging = 0, .p = .5f, .clicking_up = 0, .clicking_down = 0};
   Bar bar_value	     = { .dragging = 0, .p = .5f, .clicking_up = 0, .clicking_down = 0};
@@ -369,11 +364,6 @@ int main() {
 				 0.69f, // such that on the first frame => hsv_was_last_modified = 1
 				 bar_value.p,
 				 1.0f);
-  Mui_Vec4f rgb_last = mui_vec4f(bar_red.p,
-				 bar_green.p,
-				 bar_blue.p,
-				 1.0f);
-
 
   Frame_Event event;
   while(frame.running) {
@@ -390,6 +380,8 @@ int main() {
 	break;
       case FRAME_EVENT_MOUSERELEASE:
 	mouse_released = 1;
+	break;
+      default:
 	break;
       }
     }
@@ -431,8 +423,7 @@ int main() {
       bar_value.p      = hsv.z;
     }
 
-    hsv_last = hsv;
-    rgb_last = rgb;
+    hsv_last = hsv;    
     
     renderer.background = cast(Renderer_Vec4f, rgb);
     renderer_begin(&renderer, frame.width, frame.height);

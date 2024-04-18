@@ -176,13 +176,13 @@ typedef struct {
   int inactive_cycles;
 } Session;
 
-#define MAX_INACTIVE_CYCLES_MS 1000
+#define MAX_INACTIVE_CYCLES_MS 4 * 1000
 
-#ifdef _MSC_VER
+#ifdef _WIN32
 #  define MAX_INACTIVE_CYCLES MAX_INACTIVE_CYCLES_MS / 20 // why ?
 #else
 #  define MAX_INACTIVE_CYCLES MAX_INACTIVE_CYCLES_MS
-#endif // _MSC_VER
+#endif // _WIN32
 
 Session sessions[N] = {0};
 

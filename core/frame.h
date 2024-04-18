@@ -163,6 +163,14 @@ typedef enum {
   FRAME_EVENT_FILEDROP,
 } Frame_Event_Type;
 
+#define FRAME_BACKSPACE 8
+#define FRAME_ESCAPE 27
+#define FRAME_SPACE 32
+#define FRAME_ARROW_LEFT 37
+#define FRAME_ARROW_UP 38
+#define FRAME_ARROW_RIGHT 39
+#define FRAME_ARROW_DOWN 40
+
 typedef struct {
 #ifdef _WIN32
   MSG msg;
@@ -208,59 +216,59 @@ FRAME_DEF int frame_dragged_files_open(Frame_Dragged_Files *files, Frame_Event *
 FRAME_DEF int frame_dragged_files_next(Frame_Dragged_Files *files);
 FRAME_DEF void frame_dragged_files_close(Frame_Dragged_Files *files);
 
-#define _EXPAND(args) args
-#define CONCAT(a, b) a ## b
-#define HEAD(x, ...) x
+#define FRAME__EXPAND(args) args
+#define FRAME_CONCAT(a, b) a ## b
+#define FRAME_HEAD(x, ...) x
 
-#define BAZZ_default(...) return
-#define BAZZ_GLuint BAZZ_default
-#define BAZZ_GLint BAZZ_default
-#define BAZZ_void(...)
+#define FRAME_BAZZ_default() return
+#define FRAME_BAZZ_GLuint FRAME_BAZZ_default
+#define FRAME_BAZZ_GLint FRAME_BAZZ_default
+#define FRAME_BAZZ_void()
 
-#define BAZZ(t) CONCAT(BAZZ_, t)(__VA_ARGS__)
+#define FRAME_BAZZ(t) FRAME_CONCAT(FRAME_BAZZ_, t)()
 
-#define BAR1(a) z
-#define BAR2(a,b) z, y
-#define BAR3(a,b,c) z, y, x
-#define BAR4(a,b,c,d) z, y, x, w
-#define BAR5(a,b,c,d,e) z, y, x, w, v
-#define BAR6(a,b,c,d,e,f) z, y, x, w, v, u
-#define BAR7(a,b,c,d,e,f,g) z, y, x, w, v, u, t
-#define GETBAR(_1,_2,_3,_4,_5,_6,_7, BARN,...) BARN
+#define FRAME_BAR1(a) z
+#define FRAME_BAR2(a,b) z, y
+#define FRAME_BAR3(a,b,c) z, y, x
+#define FRAME_BAR4(a,b,c,d) z, y, x, w
+#define FRAME_BAR5(a,b,c,d,e) z, y, x, w, v
+#define FRAME_BAR6(a,b,c,d,e,f) z, y, x, w, v, u
+#define FRAME_BAR7(a,b,c,d,e,f,g) z, y, x, w, v, u, t
+#define GETFRAME_BAR(_1,_2,_3,_4,_5,_6,_7, FRAME_BARN,...) FRAME_BARN
 
-#define BAR_default(...) _EXPAND(GETBAR(__VA_ARGS__, BAR7, BAR6, BAR5, BAR4, BAR3, BAR2, BAR1)(__VA_ARGS__))
-#define BAR_GLenum BAR_default
-#define BAR_GLuint BAR_default
-#define BAR_GLsizei BAR_default
-#define BAR_GLint BAR_default
-#define BAR_int BAR_default
-#define BAR_void(...)
+#define FRAME_BAR_default(...) FRAME__EXPAND(GETFRAME_BAR(__VA_ARGS__, FRAME_BAR7, FRAME_BAR6, FRAME_BAR5, FRAME_BAR4, FRAME_BAR3, FRAME_BAR2, FRAME_BAR1)(__VA_ARGS__))
+#define FRAME_BAR_GLenum FRAME_BAR_default
+#define FRAME_BAR_GLuint FRAME_BAR_default
+#define FRAME_BAR_GLsizei FRAME_BAR_default
+#define FRAME_BAR_GLint FRAME_BAR_default
+#define FRAME_BAR_int FRAME_BAR_default
+#define FRAME_BAR_void(...)
 
-#define BAR_IMPL(h, ...) CONCAT(BAR_, h)(__VA_ARGS__)
-#define BAR(...) BAR_IMPL(HEAD(__VA_ARGS__), __VA_ARGS__)
+#define FRAME_BAR_IMPL(h, ...) FRAME_CONCAT(FRAME_BAR_, h)(__VA_ARGS__)
+#define FRAME_BAR(...) FRAME_BAR_IMPL(FRAME_HEAD(__VA_ARGS__), __VA_ARGS__)
 
-#define FOO1(a) a z
-#define FOO2(a,b) a z, b y
-#define FOO3(a,b,c) a z, b y, c x
-#define FOO4(a,b,c,d) a z, b y, c x, d w
-#define FOO5(a,b,c,d,e) a z, b y, c x, d w, e v
-#define FOO6(a,b,c,d,e,f) a z, b y, c x, d w, e v, f u
-#define FOO7(a,b,c,d,e,f,g) a z, b y, c x, d w, e v, f u, g t
-#define GETFOO(_1,_2,_3,_4,_5,_6,_7, FOON, ...) FOON
+#define FRAME_FOO1(a) a z
+#define FRAME_FOO2(a,b) a z, b y
+#define FRAME_FOO3(a,b,c) a z, b y, c x
+#define FRAME_FOO4(a,b,c,d) a z, b y, c x, d w
+#define FRAME_FOO5(a,b,c,d,e) a z, b y, c x, d w, e v
+#define FRAME_FOO6(a,b,c,d,e,f) a z, b y, c x, d w, e v, f u
+#define FRAME_FOO7(a,b,c,d,e,f,g) a z, b y, c x, d w, e v, f u, g t
+#define GETFRAME_FOO(_1,_2,_3,_4,_5,_6,_7, FRAME_FOON, ...) FRAME_FOON
 
-#define FOO_default(...) _EXPAND(GETFOO(__VA_ARGS__, FOO7, FOO6, FOO5, FOO4, FOO3, FOO2, FOO1)(__VA_ARGS__))
-#define FOO_GLenum FOO_default
-#define FOO_GLuint FOO_default
-#define FOO_GLsizei FOO_default
-#define FOO_GLint FOO_default
-#define FOO_int FOO_default
-#define FOO_void(...)
+#define FRAME_FOO_default(...) FRAME__EXPAND(GETFRAME_FOO(__VA_ARGS__, FRAME_FOO7, FRAME_FOO6, FRAME_FOO5, FRAME_FOO4, FRAME_FOO3, FRAME_FOO2, FRAME_FOO1)(__VA_ARGS__))
+#define FRAME_FOO_GLenum FRAME_FOO_default
+#define FRAME_FOO_GLuint FRAME_FOO_default
+#define FRAME_FOO_GLsizei FRAME_FOO_default
+#define FRAME_FOO_GLint FRAME_FOO_default
+#define FRAME_FOO_int FRAME_FOO_default
+#define FRAME_FOO_void(...)
 
-#define FOO_IMPL(h, ...) CONCAT(FOO_, h)(__VA_ARGS__)
-#define FOO(...) FOO_IMPL(HEAD(__VA_ARGS__), __VA_ARGS__)
+#define FRAME_FOO_IMPL(h, ...) FRAME_CONCAT(FRAME_FOO_, h)(__VA_ARGS__)
+#define FRAME_FOO(...) FRAME_FOO_IMPL(FRAME_HEAD(__VA_ARGS__), __VA_ARGS__)
 
 #define FRAME_OPENGL_FUNC(return_type, func_name, ...)	\
-  FRAME_DEF return_type func_name ( FOO(__VA_ARGS__) );
+  FRAME_DEF return_type func_name ( FRAME_FOO(__VA_ARGS__) );
 FRAME_OPENGL_FUNCS
 #undef FRAME_OPENGL_FUNC
 
@@ -269,8 +277,8 @@ FRAME_OPENGL_FUNCS
 #define FRAME_OPENGL_FUNC(return_type, func_name, ...)	\
   typedef return_type ( * func_name##_t ) (__VA_ARGS__);	\
   static func_name##_t __##func_name = NULL;			\
-  FRAME_DEF return_type func_name ( FOO(__VA_ARGS__) ) {	\
-    BAZZ(return_type) __##func_name ( BAR(__VA_ARGS__) ) ;	\
+  FRAME_DEF return_type func_name ( FRAME_FOO(__VA_ARGS__) ) {	\
+    FRAME_BAZZ(return_type) __##func_name ( FRAME_BAR(__VA_ARGS__) ) ;	\
   }
 FRAME_OPENGL_FUNCS
 #undef FRAME_OPENGL_FUNC
@@ -461,7 +469,7 @@ FRAME_DEF Frame_Error frame_open(Frame *f, s32 width, s32 height, s32 flags) {
 #define FRAME_OPENGL_FUNC(return_type, func_name, ...)			\
   do{									\
     __##func_name = (func_name##_t) (void *) wglGetProcAddress( #func_name ) ;		\
-    if(! func_name ) {							\
+    if(! __##func_name ) {							\
       return FRAME_ERROR_CANNOT_LOAD_OPENGL_FUNC;			\
     }									\
   }while(0);
