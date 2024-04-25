@@ -3,9 +3,13 @@
 
 typedef unsigned long long int Canvas_u64;
 typedef unsigned int Canvas_u32;
+typedef int Canvas_s32;
+typedef float Canvas_f32;
 
 #define u64 Canvas_u64
 #define u32 Canvas_u32
+#define f32 Canvas_f32
+#define s32 Canvas_s32
 
 #ifndef CANVAS_DEF
 #  define CANVAS_DEF static inline
@@ -60,7 +64,7 @@ CANVAS_DEF void canvas_fill(Canvas src, u32 color) {
   for(u32 y=0;y<src.height;y++) {
     for(u32 x=0;x<src.width;x++) {
       src.pixels[y * src.stride + x] = color;
-    }
+   }
   }				  
 }
 
@@ -120,6 +124,8 @@ CANVAS_DEF void canvas_interpolate_bilinear(Canvas src, Canvas dst) {
 
 #undef u64
 #undef u32
+#undef f32
+#undef s32
 
 #endif // CANVAS_IMPLEMENTATION
 
