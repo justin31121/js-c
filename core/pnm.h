@@ -65,14 +65,17 @@ typedef unsigned long long int Pnm_u64;
 #    include <windows.h>
 typedef HANDLE Pnm_Fd;
 #  else // linux
+typedef int Pnm_Fd;
 #  endif // _WIN32
 #endif // PNM_NO_STDIO
 
 PNM_DEF int pnm_is_digit(u8 c);
 PNM_DEF int pnm_is_whitespace(u8 c);
+PNM_DEF size_t pnm_strlen(const char *cstr);
 
 typedef enum {
   PNM_ERROR_NONE = 0,
+  PNM_ERROR_UNIMPLEMENTED,  
   PNM_ERROR_IO,
   PNM_ERROR_EOF,
   PNM_ERROR_INVALID_INPUT,
@@ -198,6 +201,12 @@ PNM_DEF int pnm_is_whitespace(u8 c) {
   return c == ' ' || c == '\t' || c == '\n' || c == '\v' || c == '\f' || c == '\r';
 }
 
+PNM_DEF size_t pnm_strlen(const char *cstr) {
+  size_t result = 0;
+  while(*cstr++) result++;
+  return result;
+}
+
 #ifndef PNM_NO_STDIO
 
 PNM_DEF int pnm_file_init(Pnm_File *f, const char *filepath, int for_reading) {
@@ -239,6 +248,7 @@ PNM_DEF int pnm_file_init(Pnm_File *f, const char *filepath, int for_reading) {
   }
   
 #else // linux
+  // TODO
   return 0;
   
 #endif // _WIN32
@@ -402,6 +412,9 @@ PNM_DEF u8 pnm_reader_u8(Pnm_Reader *r) {
       r->buf_len = (u64) read;
       
 #else // linux
+      // TODO
+      r->error = PNM_ERROR_UNIMPLEMENTED;
+      return 0;
 #endif //_WIN32
     }
 
@@ -758,6 +771,7 @@ PNM_DEF void pnm_writer_flush(Pnm_Writer *w) {
   switch(w->mode) {
   case PNM_MODE_FILE: {
 
+#ifdef _WIN32
     Pnm_File *f = &w->as.file;
 
     DWORD written;
@@ -768,6 +782,14 @@ PNM_DEF void pnm_writer_flush(Pnm_Writer *w) {
     }
 
     w->buf_len = 0;
+
+#else
+    // TODO
+    w->error = PNM_ERROR_UNIMPLEMENTED;
+    return;
+
+#endif // _WIN32
+    
   } break;
 
   case PNM_MODE_CALLBACKS: {
@@ -799,7 +821,7 @@ PNM_DEF void pnm_writer_write(Pnm_Writer *w, const u8 *buf, u64 buf_len) {
 }
 
 PNM_DEF void pnm_writer_format_cstr(Pnm_Writer *w, const char *cstr) {
-  pnm_writer_write(w, (const u8 *) cstr, strlen(cstr));
+  pnm_writer_write(w, (const u8 *) cstr, pnm_strlen(cstr));
 }
 
 PNM_DEF void pnm_writer_format_u32(Pnm_Writer *w, u32 n) {

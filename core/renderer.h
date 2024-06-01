@@ -144,7 +144,8 @@ RENDERER_DEF void renderer_text_measure(Renderer *r,
 
 #define RENDERER_SHADER_SOURCE(...) #__VA_ARGS__
 
-static char* renderer_vertex_shader_source =  
+static char* renderer_vertex_shader_source =
+  "#version 330 core\n"
   RENDERER_SHADER_SOURCE(
 			 uniform float width;
 			 uniform float height;
@@ -166,7 +167,8 @@ static char* renderer_vertex_shader_source =
 			 );
 
 static char *renderer_fragment_shader_source =
-  RENDERER_SHADER_SOURCE(
+  "#version 330 core\n"
+  RENDERER_SHADER_SOURCE(			 
 			 uniform sampler2D tex;
 			 
 			 varying vec4 color;
@@ -182,13 +184,13 @@ static char *renderer_fragment_shader_source =
 			     vec2 actual_uv =
 			       vec2(uv.x / float(size.x), 1.0 - uv.y / float(size.y));
 
-			     float p = texture2D(tex, actual_uv).r;
-			     
+			     float f = 1.0;
+			     float p = texture2D(tex, actual_uv).r * f;
+
 			     gl_FragColor = vec4(color.r,
 						 color.g,
 						 color.b,
 						 -1.0 * color.a * p);
-			     
 			   } else {
 			     gl_FragColor = color;
 			   }

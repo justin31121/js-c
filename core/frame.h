@@ -36,9 +36,6 @@
 // gcc -o main main.c -lGLX -lX11 -lGL -lm
 // ```
 
-#include <windows.h>
-#include <GL/GL.h>
-
 #define GL_ARRAY_BUFFER 0x8892
 #define GL_DYNAMIC_DRAW 0x88E8
 #define GL_FRAGMENT_SHADER 0x8B30
@@ -75,8 +72,10 @@ typedef size_t GLintptr;
 #  include <X11/Xutil.h>
 #  include <GL/gl.h>
 #  include <GL/glx.h>
+#  include <errno.h>
+#  include <stdlib.h>
 
-#  define FRAME_PLATFORM_OPENGL_FUNCS FRAME_LINUX_OPENGL_FUNCS
+#  define FRAME_PLATFORM_OPENGL_FUNCS
 #  define FRAME_PATH_MAX PATH_MAX
 #endif // _WIN32
 
@@ -98,12 +97,12 @@ typedef size_t GLintptr;
        FRAME_OPENGL_FUNC(void, glGenBuffers, GLsizei, GLuint*)		\
   FRAME_OPENGL_FUNC(void, glBindBuffer, GLenum, GLuint)			\
        FRAME_OPENGL_FUNC(void, glBufferData, GLenum, GLsizeiptr, const void*, GLenum) \
-    FRAME_OPENGL_FUNC(void, glEnableVertexAttribArray, GLuint)		\
+       FRAME_OPENGL_FUNC(void, glEnableVertexAttribArray, GLuint)	\
        FRAME_OPENGL_FUNC(void, glVertexAttribPointer, GLuint, GLint, GLenum, GLboolean, GLsizei, const void*) \
   FRAME_OPENGL_FUNC(void, glBufferSubData, GLenum, GLintptr, GLsizeiptr, const void*) \
   FRAME_OPENGL_FUNC(void, glUniform1f, GLint, GLfloat)			\
   FRAME_OPENGL_FUNC(void, glUniform1i, GLint, GLint)			\
-  FRAME_OPENGL_FUNC(GLint, glGetUniformLocation, GLuint, const GLchar*)
+       FRAME_OPENGL_FUNC(GLint, glGetUniformLocation, GLuint, const GLchar*)
 
 typedef unsigned char Frame_u8;
 typedef int Frame_s32;
@@ -111,6 +110,7 @@ typedef unsigned int Frame_u32;
 typedef float Frame_f32;
 typedef long long Frame_s64;
 typedef unsigned long long Frame_u64;
+
 #define u8 Frame_u8
 #define s32 Frame_s32
 #define u32 Frame_u32
@@ -267,17 +267,17 @@ FRAME_DEF void frame_dragged_files_close(Frame_Dragged_Files *files);
 #define FRAME_FOO_IMPL(h, ...) FRAME_CONCAT(FRAME_FOO_, h)(__VA_ARGS__)
 #define FRAME_FOO(...) FRAME_FOO_IMPL(FRAME_HEAD(__VA_ARGS__), __VA_ARGS__)
 
-#define FRAME_OPENGL_FUNC(return_type, func_name, ...)	\
+#define FRAME_OPENGL_FUNC(return_type, func_name, ...)		\
   FRAME_DEF return_type func_name ( FRAME_FOO(__VA_ARGS__) );
 FRAME_OPENGL_FUNCS
 #undef FRAME_OPENGL_FUNC
 
 #ifdef FRAME_IMPLEMENTATION
 
-#define FRAME_OPENGL_FUNC(return_type, func_name, ...)	\
-  typedef return_type ( * func_name##_t ) (__VA_ARGS__);	\
-  static func_name##_t __##func_name = NULL;			\
-  FRAME_DEF return_type func_name ( FRAME_FOO(__VA_ARGS__) ) {	\
+#define FRAME_OPENGL_FUNC(return_type, func_name, ...)			\
+  typedef return_type ( * func_name##_t ) (__VA_ARGS__);		\
+  static func_name##_t __##func_name = NULL;				\
+  FRAME_DEF return_type func_name ( FRAME_FOO(__VA_ARGS__) ) {		\
     FRAME_BAZZ(return_type) __##func_name ( FRAME_BAR(__VA_ARGS__) ) ;	\
   }
 FRAME_OPENGL_FUNCS
@@ -468,8 +468,8 @@ FRAME_DEF Frame_Error frame_open(Frame *f, s32 width, s32 height, s32 flags) {
 
 #define FRAME_OPENGL_FUNC(return_type, func_name, ...)			\
   do{									\
-    __##func_name = (func_name##_t) (void *) wglGetProcAddress( #func_name ) ;		\
-    if(! __##func_name ) {							\
+    __##func_name = (func_name##_t) (void *) wglGetProcAddress( #func_name ) ; \
+    if(! __##func_name ) {						\
       return FRAME_ERROR_CANNOT_LOAD_OPENGL_FUNC;			\
     }									\
   }while(0);
@@ -649,13 +649,25 @@ FRAME_DEF void frame_dragged_files_close(Frame_Dragged_Files *f) {
 
 #else // linux
 
-FRAME_DEF int frame_open(Frame *f, s32 width, s32 height, s32 flags) {
+FRAME_DEF Frame_Error frame_error_last() {
+  
+  switch(errno) {
+  case 0:
+    return FRAME_ERROR_NONE;
+  default:
+    fprintf(stderr, "FRAME_ERROR: Unhandled last_error: %d\n", errno); fflush(stderr);
+    exit(1);
+  }
+
+}
+
+FRAME_DEF Frame_Error frame_open(Frame *f, s32 width, s32 height, s32 flags) {
 
   // TODO: handle flags
 
   f->display = XOpenDisplay(NULL);
   if(!f->display) {
-    return 0;
+    return frame_error_last();
   }
 
   static int visual_attribs[] = {
@@ -681,7 +693,7 @@ FRAME_DEF int frame_open(Frame *f, s32 width, s32 height, s32 flags) {
 				       visual_attribs,
 				       &fbcount);
   if(!fbc) {
-    return 0;
+    return frame_error_last();
   }
 
   s32 best_fbc_index = -1;
@@ -715,7 +727,7 @@ FRAME_DEF int frame_open(Frame *f, s32 width, s32 height, s32 flags) {
   XFree(fbc);
 
   if(!visual_info) {
-    return 0;
+    return frame_error_last();
   }
 
   Window root_window = RootWindow(f->display, visual_info->screen);
@@ -731,16 +743,12 @@ FRAME_DEF int frame_open(Frame *f, s32 width, s32 height, s32 flags) {
   set_window_attributes.border_pixel      = 0;
   set_window_attributes.event_mask        = StructureNotifyMask;
 
-  
-#define FRAME_OPENGL_FUNC(return_type, func_name, ...)		\
-  do{								\
-    if(func_name) {						\
-      break;							\
-    }								\
-    func_name = ( return_type ( * ) ( __VA_ARGS__ ) ) glXGetProcAddressARB((u8 *) #func_name ) ; \
-    if(!func_name) {						\
-      return 0;							\
-    }								\
+#define FRAME_OPENGL_FUNC(return_type, func_name, ...)			\
+  do{									\
+    __##func_name = (func_name##_t) glXGetProcAddressARB( (unsigned char * ) #func_name ) ; \
+    if(! __##func_name ) {						\
+      return FRAME_ERROR_CANNOT_LOAD_OPENGL_FUNC;			\
+    }									\
   }while(0);
   FRAME_OPENGL_FUNCS
 #undef FRAME_OPENGL_FUNC
@@ -759,7 +767,7 @@ FRAME_DEF int frame_open(Frame *f, s32 width, s32 height, s32 flags) {
 			      &set_window_attributes);
   XFree(visual_info);
   if(!f->window) {
-    return 0;
+    return frame_error_last();
   }
 
   Atom atom_delete_window = XInternAtom(f->display, "WM_DELETE_WINDOW", False);
@@ -799,7 +807,7 @@ FRAME_DEF int frame_open(Frame *f, s32 width, s32 height, s32 flags) {
   f->running = FRAME_RUNNING;
   f->fd = -1;
   
-  return 1;
+  return FRAME_ERROR_NONE;
 }
 
 FRAME_DEF int frame_peek(Frame *f, Frame_Event *e) {
@@ -890,9 +898,14 @@ FRAME_DEF void frame_swap_buffers(Frame *f) {
   glXSwapBuffers(f->display, f->window);
 }
 
-FRAME_DEF int frame_toggle_fullscreen(Frame *f) {
+FRAME_DEF Frame_Error frame_toggle_fullscreen(Frame *f) {
   // TODO
-  return 0;
+  return FRAME_ERROR_NONE;
+}
+
+FRAME_DEF Frame_Error frame_set_title(Frame *f, char *title) {
+  // TODO
+  return FRAME_ERROR_NONE;
 }
 
 FRAME_DEF void frame_close(Frame *f) {

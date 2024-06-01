@@ -116,7 +116,6 @@ IO_DEF Io_Error io_file_read(Io_File *f,
 			     u64 len,
 			     u64 *read);
 IO_DEF Io_Error io_file_seek(Io_File *f, u64 offset);
-  
 IO_DEF void io_file_close(Io_File *f);
 
 
@@ -211,9 +210,9 @@ IO_DEF Io_Error io_file_read(Io_File *f,
     return io_error_last();
   } else {    
     *read = (u64) bytes_read;
-    f->pos += *read;
-    
+    f->pos += *read;    
     if(bytes_read == 0) {
+      *read = 0;
       return IO_ERROR_EOF;
     } else {      
       return IO_ERROR_NONE;
@@ -284,17 +283,16 @@ IO_DEF Io_Error io_file_ropen(Io_File *f,
 			      u8 *name,
 			      u64 name_len) {
   u8 buf[IO_MAX_PATH];
-#include <string.h>
   memcpy(buf, name, name_len);
   buf[name_len] = 0;
 
-  f->fd = open(buf, O_RDONLY);
+  f->fd = open((char *) buf, O_RDONLY);
   if(f->fd < 0) {
     return io_error_last();
   }
   
   struct stat stats;
-  if(stat(buf, &stats) < 0) {
+  if(stat((char *) buf, &stats) < 0) {
     close(f->fd);
     return io_error_last();
   }
@@ -313,12 +311,46 @@ IO_DEF Io_Error io_file_read(Io_File *f,
   if(ret < 0) {
     return io_error_last();
   } else if(ret == 0) {
+    *_read = 0;
     return IO_ERROR_EOF;
   } else {
     *_read = (u64) ret;
     f->pos += *_read;
     return IO_ERROR_NONE;
   }
+}
+
+IO_DEF Io_Error io_file_seek(Io_File *f, u64 offset) {
+
+  off_t pos = lseek(f->fd, (off_t) offset, SEEK_SET);
+  if(pos == -1) {
+    return io_error_last();
+  } else {
+    f->pos = (u64) pos;
+    return IO_ERROR_NONE;
+  }
+  
+}
+
+IO_DEF int io_exists(u8 *name, u64 name_len, int *is_file) {
+
+  u8 buf[IO_MAX_PATH];
+  memcpy(buf, name, name_len);
+  buf[name_len] = 0;  
+  
+  int result = access((char *) buf, F_OK);
+  if(result < 0) {
+    return 0;
+  }
+
+  if(is_file) {
+    struct stat path_stat;
+    stat((char *) buf, &path_stat);
+    *is_file = S_ISREG(path_stat.st_mode) != 0;
+  }
+
+  return 1;
+
 }
 
 IO_DEF void io_file_close(Io_File *f) {

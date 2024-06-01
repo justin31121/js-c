@@ -30,12 +30,14 @@ typedef unsigned int str_u32;
 typedef int str_s32;
 typedef long long str_s64;
 typedef unsigned long long str_u64;
+typedef double str_f64;
 
 #define u8 str_u8
 #define u32 str_u32
 #define s32 str_s32
 #define s64 str_s64
 #define u64 str_u64
+#define f64 str_f64
 
 #ifndef STR_DEF
 #  define STR_DEF static inline
@@ -74,6 +76,7 @@ typedef struct{
 STR_DEF bool str_eq(str a, str b);
 #define str_eqc(s, cstr) str_eq((s), str_fromc(cstr))
 STR_DEF bool str_parse_s64(str s, s64 *n);
+STR_DEF bool str_parse_f64(str s, f64 *n);
 
 STR_DEF s32 str_index_of(str s, str needle);
 STR_DEF s32 str_index_of_off(str s, u64 off, str needle);
@@ -172,6 +175,59 @@ STR_DEF bool str_parse_s64(str s, s64 *n) {
   *n = sum;
   
   return i==s.len;
+}
+
+STR_DEF bool str_parse_f64(str s, f64 *n) {
+  if (s.len == 0) {
+    return false;
+  }
+
+  f64 parsedResult = 0.0;
+  s32 sign = 1;
+  s32 decimalFound = 0;
+  s32 decimalPlaces = 0;
+  f64 exponentFactor = 1.0;
+
+  u8 *data = (u8 *)s.data;
+
+  u64 i = 0;
+
+  if (i < s.len && (data[i] == '+' || data[i] == '-')) {
+    if (data[i] == '-') {
+      sign = -1;
+    }
+    i++;
+  }
+
+  while (i < s.len && ('0' <= data[i] || data[i] <= '9')) {
+    parsedResult = parsedResult * 10.0 + (data[i] - '0');
+    i++;
+  }
+
+  if (i < s.len && data[i] == '.') {
+    i++;
+    while (i < s.len && ('0' <= data[i] || data[i] <= '9')) {
+      parsedResult = parsedResult * 10.0 + (data[i] - '0');
+      decimalPlaces++;
+      i++;
+    }
+    decimalFound = 1;
+  }
+
+  exponentFactor = 1.0;
+  for (int j = 0; j < decimalPlaces; j++) {
+    exponentFactor *= 10.0;
+  }
+  
+  parsedResult *= sign;
+  if (decimalFound) {
+    parsedResult /= exponentFactor;
+  }
+
+  *n = parsedResult;
+
+  return true;
+
 }
 
 static s32 str_index_of_impl(const char *haystack, u64 haystack_size, const char* needle, u64 needle_size) {
@@ -498,5 +554,6 @@ STR_DEF Rune rune_unescape(u8 **data, u64 *data_len) {
 #undef s32
 #undef s64
 #undef u64
+#undef f64
 
 #endif //  _STR_H

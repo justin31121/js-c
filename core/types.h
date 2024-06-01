@@ -26,11 +26,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define panic(...) do{						\
-    fprintf(stderr, "%s:%d:ERROR: ", __FILE__, __LINE__);	\
-    fflush(stderr);						\
-    fprintf(stderr, __VA_ARGS__); fflush(stderr);		\
-    exit(1);							\
+#define here_fmt "%s:%d:"
+#define here_arg() __FILE__, __LINE__
+
+#define panic(...) do{					\
+    fprintf(stderr, here_fmt"ERROR: ", here_arg());	\
+    fflush(stderr);					\
+    fprintf(stderr, __VA_ARGS__); fflush(stderr);	\
+    exit(1);						\
   }while(0)
 
 #define UNREACHABLE() panic("UNREACHABLE")

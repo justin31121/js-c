@@ -29,7 +29,7 @@ int load_font(char *font_file_path,
 
   int result = 1;
   char *ttf_data = NULL; // io_slurp_file
-  size_t ttf_data_len;
+  u64 ttf_data_len;
   char *bitmap = NULL;   // malloc
   f->glyphs = NULL;      // malloc
   
@@ -315,7 +315,7 @@ void bar_update_render(Bar *b,
 }
 
 
-int main() {
+int main() {  
   
   Frame frame;
   switch(frame_open(&frame, 600, 400, 0)) {
@@ -332,9 +332,11 @@ int main() {
   if(!renderer_open(&renderer)) {
     return 1;
   }
-
+  
   Renderer_Font font;
-  if(!load_font("C:\\Windows\\Fonts\\segoeui.ttf",
+  if(!load_font(
+		//"C:\\Windows\\Fonts\\segoeui.ttf",
+		"/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
 		22.0f,
 		&renderer,
 		&font)) {

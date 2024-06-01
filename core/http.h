@@ -44,13 +44,11 @@ typedef unsigned long long Http_u64;
 HTTP_DEF int http_parse_s64(u8 *data, u64 len, s64 *n);
 HTTP_DEF int http_equals_ignorecase(u8 *data, u64 len, char *cstr);
 
-#define HTTP_REQUEST_PAIR_INVALID 0
+#define HTTP_REQUEST_PAIR_IDLE 0
 #define HTTP_REQUEST_PAIR_KEY 1
 #define HTTP_REQUEST_PAIR_ALMOST_VALUE 2
 #define HTTP_REQUEST_PAIR_VALUE 3
-#define HTTP_REQUEST_PAIR_VALUE_RESET 4
 
-#define HTTP_REQUEST_STATE_DONE (-1)
 #define HTTP_REQUEST_STATE_IDLE 0
 #define HTTP_REQUEST_STATE_R    1
 #define HTTP_REQUEST_STATE_RN   2
@@ -60,15 +58,18 @@ HTTP_DEF int http_equals_ignorecase(u8 *data, u64 len, char *cstr);
 #define HTTP_REQUEST_BODY_NONE 0
 #define HTTP_REQUEST_BODY_CONTENT_LEN 1
 #define HTTP_REQUEST_BODY_CHUNKED 2
-#define HTTP_REQUEST_BODY_INFO 3
 
-#define HTTP_BUF_CAP 64
+#define HTTP_METHODS_X					\
+  HTTP_METHOD_X(GET)					\
+       HTTP_METHOD_X(POST)				\
+       HTTP_METHOD_X(DELETE)				\
+       HTTP_METHOD_X(HEAD)			\
 
 typedef enum {
-  HTTP_METHOD_NONE   = 0,
-  HTTP_METHOD_GET    = 1,
-  HTTP_METHOD_POST   = 2,
-  HTTP_METHOD_DELETE = 3,
+  HTTP_METHOD_NONE = 0,
+#define HTTP_METHOD_X(m) HTTP_METHOD_##m,
+  HTTP_METHODS_X
+#undef HTTP_METHOD_X
 } Http_Method;
 
 #define HTTP_DONE 0x1
@@ -76,9 +77,12 @@ typedef enum {
 #define HTTP_SET_BODY_CHUNKED 0x4
 #define HTTP_FINISH_CHUNKED_BODY 0x8
 #define HTTP_CHUNKED_SKIP_RN 0x10
+#define HTTP_PROCESS_NOW 0x20
+
+#define HTTP_HEX_CAP 16
 
 typedef struct {
-  s32 state, state2;
+  s32 state;
   u32 pair;
   u32 body;
   s64 __content_length;
@@ -91,46 +95,48 @@ typedef struct {
   u8 *body_data;
   u64 body_len;
 
-  u8 key[HTTP_BUF_CAP];
-  u64 key_len;
-  u8 value[HTTP_BUF_CAP];
-  u64 value_len;
+  u8 hex[HTTP_HEX_CAP];
+  u64 hex_len;
 } Http;
 
 #define http_default() (Http) {			\
     .state = HTTP_REQUEST_STATE_IDLE,		\
-      .state2 = HTTP_REQUEST_STATE_IDLE,	\
       .pair = HTTP_REQUEST_PAIR_KEY,		\
       .body = HTTP_REQUEST_BODY_NONE,		\
       .content_length = 0,			\
       .response_code = 0,			\
       .method = HTTP_METHOD_NONE,		\
-      .key_len = 0,				\
-      .value_len = 0,				\
+      .hex_len = 0,				\
       .flags = 0,				\
       .body_data = NULL,			\
       .body_len = 0,				\
       }
 
 typedef enum {
-  HTTP_EVENT_ERROR = 0,
-  HTTP_EVENT_NOTHING,
+  HTTP_EVENT_NOTHING = 0,  
+  
+  HTTP_EVENT_KEY   = HTTP_REQUEST_PAIR_KEY, // 1
+  HTTP_EVENT_VALUE = HTTP_REQUEST_PAIR_VALUE, // 2
+
+  HTTP_EVENT_ERROR,
+  HTTP_EVENT_PROCESS,
   HTTP_EVENT_PATH,
-  HTTP_EVENT_HEADER,
   HTTP_EVENT_BODY,
+
 } Http_Event;
 
 HTTP_DEF Http_Event http_process(Http *h, u8 **data, u64 *len);
-HTTP_DEF Http_Event http_process_prefix(Http *h);
-HTTP_DEF Http_Event http_process_header(Http *h);
+/* HTTP_DEF Http_Event http_process_prefix(Http *h); */
+/* HTTP_DEF Http_Event http_process_header(Http *h); */
 
 #ifdef HTTP_IMPLEMENTATION
 
 static char *HTTP_METHOD_NAME[]= {
   [HTTP_METHOD_NONE] = "none",
-  [HTTP_METHOD_GET] = "GET",
+  [HTTP_METHOD_GET] = "GET",  
   [HTTP_METHOD_POST] = "POST",
   [HTTP_METHOD_DELETE] = "DELETE",
+  [HTTP_METHOD_HEAD] = "HEAD",
 };
 
 HTTP_DEF int http_parse_s64(u8 *data, u64 len, s64 *n) {
@@ -201,14 +207,15 @@ HTTP_DEF int http_equals_ignorecase(u8 *data, u64 len, char *cstr) {
 
 }
 
-HTTP_DEF Http_Event http_process_prefix(Http *h) {
+
+HTTP_DEF Http_Event __http_process_prefix(Http *h, u8 *data, u64 len) {
   
   u64 key_off = 0;
   for(u64 m=1;m<sizeof(HTTP_METHOD_NAME)/sizeof(HTTP_METHOD_NAME[0]);m++) {
     char *method_name = HTTP_METHOD_NAME[m];
     u64 method_name_len = strlen(method_name);
-    if(h->key_len < method_name_len) continue;
-    if(memcmp(h->key, method_name, method_name_len) != 0) continue;
+    if(len < method_name_len) continue;
+    if(memcmp(data, method_name, method_name_len) != 0) continue;
     
     h->method = (Http_Method) m;
     key_off = method_name_len;
@@ -219,20 +226,20 @@ HTTP_DEF Http_Event http_process_prefix(Http *h) {
   static u64 http1prefix_len = sizeof(http1prefix) - 1;
   if(h->method != HTTP_METHOD_NONE) {
 
-    if(key_off + 1 >= h->key_len ||
-       h->key[key_off] != ' ') {
+    if(key_off + 1 >= len ||
+       data[key_off] != ' ') {
       return HTTP_EVENT_ERROR;
     }
 
     int found = 0;
     u64 j=key_off+1;
-    for(;!found && j<h->key_len && http1prefix_len<=h->key_len-j;j++) {
-      found = found || memcmp(h->key + j, http1prefix, http1prefix_len) == 0;
+    for(;!found && j<len && http1prefix_len<=len-j;j++) {
+      found = found || memcmp(data + j, http1prefix, http1prefix_len) == 0;
     }
 
     if(found) {
-      h->value_len = j - key_off - 3;
-      memcpy(h->value, h->key + key_off + 1, h->value_len);
+      h->body_data = data + key_off + 1;
+      h->body_len = j - key_off - 3;
 
       return HTTP_EVENT_PATH;
     } else {
@@ -241,14 +248,14 @@ HTTP_DEF Http_Event http_process_prefix(Http *h) {
 	  
   } else {	  
 
-    if(h->key_len < http1prefix_len ||
-       memcmp(h->key, http1prefix, http1prefix_len) != 0) {	    
+    if(len < http1prefix_len ||
+       memcmp(data, http1prefix, http1prefix_len) != 0) {
       return HTTP_EVENT_ERROR;
     }
 	  
     s64 n;
-    if(h->key_len - http1prefix_len <= 5 ||
-       !http_parse_s64(h->key + http1prefix_len + 2, 3, &n)) {
+    if(len - http1prefix_len <= 5 ||
+       !http_parse_s64(data + http1prefix_len + 2, 3, &n)) {
       return HTTP_EVENT_ERROR;
     }
     h->response_code = (s32) n;
@@ -258,11 +265,22 @@ HTTP_DEF Http_Event http_process_prefix(Http *h) {
   return HTTP_EVENT_NOTHING;
 }
 
-HTTP_DEF Http_Event http_process_header(Http *h) {
+
+HTTP_DEF Http_Event __http_process_header(Http *h,
+					  u8 *key, u64 key_len,
+					  u8 *value, u64 value_len) {
+
+  if(key_len == 0) {
+    return HTTP_EVENT_ERROR;
+  }
+
+  if(value_len == 0) {
+    return __http_process_prefix(h, key, key_len);
+  }
   
-  if(http_equals_ignorecase(h->key, h->key_len, "content-length")) {
-    if(!http_parse_s64(h->value,
-		       h->value_len,
+  if(http_equals_ignorecase(key, key_len, "content-length")) {
+    if(!http_parse_s64(value,
+		       value_len,
 		       &h->__content_length)) {
       return HTTP_EVENT_ERROR;
     }
@@ -270,21 +288,21 @@ HTTP_DEF Http_Event http_process_header(Http *h) {
     h->flags |= HTTP_SET_BODY_CONTENT_LEN;
   }
   
-  if(http_equals_ignorecase(h->key, h->key_len, "transfer-encoding") &&
-     http_equals_ignorecase(h->value, h->value_len, "chunked")) {
+  if(http_equals_ignorecase(key, key_len, "transfer-encoding") &&
+     http_equals_ignorecase(value, value_len, "chunked")) {
     h->__content_length = -1;
     h->flags |= HTTP_SET_BODY_CHUNKED;
   }
 
-  return HTTP_EVENT_HEADER;
+  return HTTP_EVENT_NOTHING;
 }
 
 HTTP_DEF Http_Event http_process(Http *h, u8 **_data, u64 *_len) {
 
-  if(h->pair == HTTP_REQUEST_PAIR_VALUE_RESET) {
-    h->key_len = 0;
-    h->value_len = 0;
-    h->pair = HTTP_REQUEST_PAIR_VALUE;
+  if(h->flags & HTTP_PROCESS_NOW) {
+    h->flags &= ~HTTP_PROCESS_NOW;
+    h->hex_len = 0;
+    return HTTP_EVENT_PROCESS;
   }
 
   u8 *data = *_data;
@@ -293,6 +311,9 @@ HTTP_DEF Http_Event http_process(Http *h, u8 **_data, u64 *_len) {
   if(h->body == HTTP_REQUEST_BODY_CONTENT_LEN) {
     h->body_data = data;
     h->body_len  = len;
+    if(h->body_len + h->content_length > (u64) h->__content_length) {
+      h->body_len = (u64) h->__content_length - h->content_length;
+    }
     h->content_length += h->body_len;
     if(h->content_length == h->__content_length) h->flags |= HTTP_DONE;
     
@@ -316,13 +337,19 @@ HTTP_DEF Http_Event http_process(Http *h, u8 **_data, u64 *_len) {
     }
   }
 
+  u64 header_start = len;
+  u64 header_len = 1;
+  u32 header = h->pair;
+  if(h->pair == HTTP_REQUEST_PAIR_ALMOST_VALUE) {
+    header = HTTP_REQUEST_PAIR_VALUE;
+  }
+
   for(u64 i=0;i<len;i++) {
-    u32 state_before = h->state;
-    u8 c = data[i];
+    u8 c = data[i];    
 
     switch(c) {
       
-    case '\r': {      
+    case '\r': {
       switch(h->state) {
       case HTTP_REQUEST_STATE_IDLE:
 	h->state = HTTP_REQUEST_STATE_R;
@@ -367,10 +394,14 @@ HTTP_DEF Http_Event http_process(Http *h, u8 **_data, u64 *_len) {
     } break;
 
     case ':': {
-      if(h->pair == HTTP_REQUEST_PAIR_KEY) h->pair = HTTP_REQUEST_PAIR_ALMOST_VALUE;
+      if(h->pair == HTTP_REQUEST_PAIR_KEY) {
+	h->pair = HTTP_REQUEST_PAIR_ALMOST_VALUE;
+      }
     } break;
     case ' ': {
-      if(h->pair == HTTP_REQUEST_PAIR_ALMOST_VALUE) h->pair = HTTP_REQUEST_PAIR_VALUE;
+      if(h->pair == HTTP_REQUEST_PAIR_ALMOST_VALUE) {
+	h->pair = HTTP_REQUEST_PAIR_VALUE;
+      }
     } break;
       
     default: {
@@ -378,13 +409,7 @@ HTTP_DEF Http_Event http_process(Http *h, u8 **_data, u64 *_len) {
     } break;
     }
 
-    if(h->state == HTTP_REQUEST_STATE_IDLE &&
-       state_before == HTTP_REQUEST_STATE_RN) {
-      h->pair = HTTP_REQUEST_PAIR_KEY;
-    }
-
     switch(h->body) {
-
     case HTTP_REQUEST_BODY_NONE: {
 
       switch(h->state) {
@@ -396,17 +421,48 @@ HTTP_DEF Http_Event http_process(Http *h, u8 **_data, u64 *_len) {
 
 	switch(h->pair) {
 	case HTTP_REQUEST_PAIR_KEY: {
-	  if(h->key_len < HTTP_BUF_CAP) h->key[h->key_len++] = c;
-	} break;
-	
-	case HTTP_REQUEST_PAIR_VALUE: {
-	  if(h->value_len < HTTP_BUF_CAP) {
-	    if(h->value_len == 0) h->value_len = 1;
-	    else {
-	      if(c == ' ' && h->value_len == 1) ; //ignore
-	      else h->value[h->value_len++ - 1] = c;
+
+	  if(header_start == len) {
+	    header_start = i;
+	    header = HTTP_REQUEST_PAIR_KEY;
+	  } else {
+	    if(header == HTTP_REQUEST_PAIR_VALUE) {
+	      u64 dv = (h->hex_len == 0) * 1;
+	      
+	      h->body_data = data + header_start + dv;
+	      h->body_len  = header_len - dv;
+	      *_data = *_data + i;
+	      *_len = *_len - i;
+
+	      h->hex_len += h->body_len;
+	      
+	      return (Http_Event) (h->body_len > 0) * HTTP_EVENT_VALUE;
+	    } else {
+	      header_len++;
+	      
 	    }
+	    
 	  }
+	} break;
+
+	case HTTP_REQUEST_PAIR_VALUE: {
+	  if(header_start == len) {
+	    header_start = i;
+	    header = HTTP_REQUEST_PAIR_VALUE;
+	  } else {
+	    if(header == HTTP_REQUEST_PAIR_KEY) {
+	      h->body_data = data + header_start;
+	      h->body_len  = header_len;
+	      *_data = *_data + i;
+	      *_len = *_len - i;
+	      return HTTP_EVENT_KEY;
+	    } else {
+	      header_len++;
+	      
+	    }
+	    
+	  }
+
 	} break;
 	}
 	
@@ -417,31 +473,25 @@ HTTP_DEF Http_Event http_process(Http *h, u8 **_data, u64 *_len) {
 	// HTTP_REQUEST_STATE_RN
 	//     perform events/ parse Headers
 
-	switch(h->pair) {
-	case HTTP_REQUEST_PAIR_KEY: {
-	  Http_Event event = http_process_prefix(h);
-	  h->key_len = 0;
-	
-	  if(event != HTTP_EVENT_NOTHING) {
-	    *_data = *_data + i + 1;
-	    *_len = *_len - (i + 1);
-	    return event;
-	  }
-	} break;
-	
-	case HTTP_REQUEST_PAIR_VALUE: {
-	  if(h->value_len > 0) h->value_len -= 1;
+	h->pair = HTTP_REQUEST_PAIR_KEY;
 
-	  Http_Event event = http_process_header(h);
-	  *_data = *_data + i + 1;
+	if(header_start < len) {
+	  h->flags |= HTTP_PROCESS_NOW;
+
+	  u64 is_value = (header == HTTP_REQUEST_PAIR_VALUE);
+	  u64 dv = is_value * (h->hex_len == 0) * 1;
+	  
+	  h->body_data = data + header_start + dv;
+	  h->body_len  = header_len - dv;
+	  *_data = *_data + (i + 1);
 	  *_len = *_len - (i + 1);
 
-	  // Clear h->key_len and h->value_len, after event is processed
-	  h->pair = HTTP_REQUEST_PAIR_VALUE_RESET;
-	  
-	  return event;
-	
-	} break;
+	  h->hex_len += is_value * h->body_len;	  
+	  return (Http_Event) ((h->body_len > 0) * header);
+	} else {
+	  *_data = *_data + (i + 1);
+	  *_len = *_len - (i + 1);
+	  return HTTP_EVENT_PROCESS;
 	}
 	
       } break;
@@ -460,10 +510,10 @@ HTTP_DEF Http_Event http_process(Http *h, u8 **_data, u64 *_len) {
 	} else {
 	  h->flags |= HTTP_DONE;
 	}
+	
 	*_data = *_data + i + 1;
 	*_len = *_len - (i + 1);
-	h->key_len = 0;
-	h->value_len = 0;
+	h->hex_len = 0;
 	return HTTP_EVENT_NOTHING;
       } break;
 	
@@ -514,7 +564,9 @@ HTTP_DEF Http_Event http_process(Http *h, u8 **_data, u64 *_len) {
 	  // HTTP_REQUEST_STATE_IDLE
 	  //     collect hex data, called 'length of a chunk'
 
-	  if(h->key_len < HTTP_BUF_CAP) h->key[h->key_len++] = c;
+	  if(h->hex_len < HTTP_HEX_CAP) h->hex[h->hex_len++] = c;
+	  
+	  
 	} break;
 
 	case HTTP_REQUEST_STATE_RN: {
@@ -524,10 +576,10 @@ HTTP_DEF Http_Event http_process(Http *h, u8 **_data, u64 *_len) {
 	  //     parse 'length of a chunk' chunk
 
 	  u64 n;
-	  if(!http_parse_hex_u64(h->key, h->key_len, &n)) {
+	  if(!http_parse_hex_u64(h->hex, h->hex_len, &n)) {
 	    return HTTP_EVENT_ERROR;
 	  }
-	  h->key_len = 0;
+	  h->hex_len = 0;
 	  if(n == 0) {
 	    h->flags |= HTTP_FINISH_CHUNKED_BODY;
 	  }
@@ -573,11 +625,22 @@ HTTP_DEF Http_Event http_process(Http *h, u8 **_data, u64 *_len) {
     } break;
       
     }
-
   }
 
   *_len = 0;
-  return HTTP_EVENT_NOTHING;
+  if(header_start < len) {
+    u64 is_value = (header == HTTP_REQUEST_PAIR_VALUE);
+    u64 dv = is_value * (h->hex_len == 0) * 1;
+
+    h->body_data = data + header_start + dv;
+    h->body_len  = header_len - dv;
+
+    h->hex_len += is_value * h->body_len;	  
+    return (Http_Event) ((h->body_len > 0) * header);
+  } else {
+    return HTTP_EVENT_NOTHING;
+  }
+ 
 }
 
 

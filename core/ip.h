@@ -62,16 +62,17 @@ typedef unsigned long long Ip_u64;
 
 typedef enum {
   IP_ERROR_NONE = 0,
-  IP_ERROR_REPEAT,
-  
+  IP_ERROR_REPEAT,  
   IP_ERROR_WSA_STARTUP_FAILED,
   IP_ERROR_UNKNOWN_HOSTNAME,
   IP_ERROR_ALLOC_FAILED,
   IP_ERROR_SOCKET_OVERFLOW,
-
   IP_ERROR_CONNECTION_CLOSED,
   IP_ERROR_CONNECTION_REFUSED,
   IP_ERROR_CONNECTION_ABORTED,
+  IP_ERROR_NOT_A_SOCKET,
+  IP_ERROR_NO_SUCH_FILE_OR_DIRECTORY,
+  IP_ERROR_BROKEN_PIPE,
 } Ip_Error;
 
 IP_DEF Ip_Error ip_error_last();
@@ -88,10 +89,11 @@ typedef struct {
 
 } Ip_Fd_Set;
 
-#define IP_VALID    0x1
-#define IP_CLIENT   0x2
-#define IP_SERVER   0x4
-#define IP_BLOCKING 0x8
+#define IP_VALID    0x01
+#define IP_CLIENT   0x02
+#define IP_SERVER   0x04
+#define IP_BLOCKING 0x08
+#define IP_WRITING  0x10
 
 typedef struct {
 #ifdef _WIN32
@@ -106,7 +108,11 @@ typedef struct {
 
 typedef struct {
   struct sockaddr_in addr;
+#ifdef _WIN32
   int addr_len;
+#else
+  socklen_t addr_len;
+#endif // _WIN32  
 } Ip_Address;
 
 IP_DEF Ip_Error ip_socket_copen(Ip_Socket *s, char *hosntame, u16 port);
@@ -144,12 +150,20 @@ typedef struct {
 
 } Ip_Server;
 
+typedef enum {
+  IP_MODE_READ,
+  IP_MODE_WRITE,
+  IP_MODE_DISCONNECT,
+} Ip_Mode;
+
 // Ip_Server is by default nonblocking
 IP_DEF Ip_Error ip_server_open(Ip_Server *s, u16 port, u64 number_of_clients);
 
-IP_DEF Ip_Error ip_server_next(Ip_Server *s, u64 *index);
+IP_DEF Ip_Error ip_server_next(Ip_Server *s, u64 *index, Ip_Mode *mode);
 IP_DEF int ip_server_client(Ip_Server *s, u64 *index);
 IP_DEF Ip_Error ip_server_accept(Ip_Server *s, u64 *index, Ip_Address *a);
+IP_DEF void ip_server_register_for_writing(Ip_Server *s, u64 index);
+IP_DEF void ip_server_unregister_for_writing(Ip_Server *s, u64 index);
 IP_DEF Ip_Error ip_server_discard(Ip_Server *s, u64 index);
 
 IP_DEF void ip_server_close(Ip_Server *s);
@@ -500,21 +514,29 @@ IP_DEF void ip_server_close(Ip_Server *s) {
 }
 
 IP_DEF Ip_Error ip_server_discard(Ip_Server *s, u64 index) {
-  s->sockets[index] = ip_socket_invalid();  
+  s->sockets[index] = ip_socket_invalid();
   s->active_clients--;
   return IP_ERROR_NONE;
 }
 
-#else // _WIN32 
+#else // _WIN32
 
 IP_DEF Ip_Error ip_error_last() {
   switch(errno) {
+  case 2:
+    return IP_ERROR_NO_SUCH_FILE_OR_DIRECTORY;
   case 9:
     return IP_ERROR_CONNECTION_ABORTED;
   case 111:
     return IP_ERROR_CONNECTION_REFUSED;
+  case 11:
+    return IP_ERROR_REPEAT;
   case 104:
     return IP_ERROR_CONNECTION_CLOSED;
+  case 88:
+    return IP_ERROR_NOT_A_SOCKET;
+  case 32:
+    return IP_ERROR_BROKEN_PIPE;
   default:
     fprintf(stderr, "IP_ERROR: Unhandled last_error: %d\n", errno);
     fprintf(stderr, "IP_ERROR: '%s'\n", strerror(errno));
@@ -531,7 +553,7 @@ IP_DEF Ip_Error ip_socket_copen(Ip_Socket *s, char *hostname, u16 port) {
   s->_socket = socket(AF_INET, SOCK_STREAM, 0);
   if(s->_socket < 0) {
     ip_return_defer(ip_error_last());
-  } 
+  }
  
   struct hostent *hostent = gethostbyname(hostname);
   if(!hostent) {
@@ -569,6 +591,15 @@ IP_DEF Ip_Error ip_socket_sopen(Ip_Socket *s, u16 port, int blocking) {
 
   s->_socket = socket(AF_INET, SOCK_STREAM, 0);
   if(s->_socket < 0) {
+    ip_return_defer(ip_error_last());
+  }
+
+  s32 enable = 1;
+  if(setsockopt(s->_socket, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(s32)) < 0) {
+    ip_return_defer(ip_error_last());
+  }
+
+  if(setsockopt(s->_socket, SOL_SOCKET, SO_REUSEPORT, &enable, sizeof(s32)) < 0) {
     ip_return_defer(ip_error_last());
   }
   
@@ -610,7 +641,7 @@ IP_DEF void ip_socket_set_blocking(Ip_Socket *s, int blocking) {
 }
 
 IP_DEF Ip_Error ip_socket_address(Ip_Socket *s, Ip_Address *a) {
-  s32 addr_len = sizeof(a->addr);
+  socklen_t addr_len = (socklen_t) sizeof(a->addr);
   if(getpeername(s->_socket, (struct sockaddr *) &a->addr, &addr_len) != 0) {
     return ip_error_last();
   }
@@ -631,6 +662,7 @@ IP_DEF Ip_Error ip_socket_read(Ip_Socket *s, u8 *buf, u64 buf_len, u64 *_read) {
 }
 
 IP_DEF Ip_Error ip_socket_write(Ip_Socket *s, u8 *buf, u64 buf_len, u64 *written) {
+  
   s32 ret = write(s->_socket, (char *) buf, buf_len);
   if(ret < 0) {
     return ip_error_last();
@@ -648,7 +680,7 @@ IP_DEF void ip_socket_close(Ip_Socket *s) {
 }
 
 IP_DEF Ip_Error ip_socket_accept(Ip_Socket *s, Ip_Socket *client, Ip_Address *a) {
-  a->addr_len = (int) sizeof(a->addr);
+  a->addr_len = (socklen_t) sizeof(a->addr);
   int fd = accept(s->_socket, (struct sockaddr *) &a->addr, &a->addr_len);
   if(fd <= 0) {
     if(errno == EAGAIN || errno == EWOULDBLOCK) {
@@ -662,6 +694,16 @@ IP_DEF Ip_Error ip_socket_accept(Ip_Socket *s, Ip_Socket *client, Ip_Address *a)
   ip_socket_set_blocking(client, s->flags & IP_BLOCKING);
   
   return IP_ERROR_NONE;
+}
+
+IP_DEF void ip_server_register_for_writing(Ip_Server *s, u64 index) {
+  Ip_Socket *client = &s->sockets[index];
+  client->flags |= IP_WRITING;
+}
+
+IP_DEF void ip_server_unregister_for_writing(Ip_Server *s, u64 index) {
+  Ip_Socket *client = &s->sockets[index];
+  client->flags &= ~IP_WRITING;
 }
 
 IP_DEF Ip_Error ip_server_open(Ip_Server *s, u16 port, u64 number_of_clients) {
@@ -691,8 +733,8 @@ IP_DEF Ip_Error ip_server_open(Ip_Server *s, u16 port, u64 number_of_clients) {
   }
   
   struct epoll_event event;
-  event.events = EPOLLIN;
-  event.data.ptr = (void *) s->sockets_count - 1;
+  event.events = EPOLLIN | EPOLLET;
+  event.data.ptr = (void *) (s->sockets_count - 1);
   if(epoll_ctl(s->epfd, EPOLL_CTL_ADD, server->_socket, &event) != 0) {
     ip_return_defer(ip_error_last());
   }
@@ -705,29 +747,66 @@ IP_DEF Ip_Error ip_server_open(Ip_Server *s, u16 port, u64 number_of_clients) {
   return result; 
 }
 
-IP_DEF Ip_Error ip_server_next(Ip_Server *s, u64 *index) {
+IP_DEF Ip_Error ip_server_next(Ip_Server *s,
+			       u64 *index,
+			       Ip_Mode *mode) {
   if(s->ret == -2) {
     return ip_error_last();
   } 
   
   if(s->ret == -1) {
-    s->ret = epoll_wait(s->epfd, s->ep_events, IP_SERVER_EP_EVENTS, 1);
+    s->ret = epoll_wait(s->epfd, s->ep_events, IP_SERVER_EP_EVENTS, 10);
     if(s->ret < 0) {
       s->ret = -2;
       return ip_error_last();
     }
     s->ep_events_off = 0;
   }
+
+ repeat:
  
   if(s->ret == 0) {
     s->ret = -1;
     return IP_ERROR_REPEAT;
   }
 
-  struct epoll_event *ep_event = &s->ep_events[s->ep_events_off++];
-  s->ret--;
+  struct epoll_event *ep_event = &s->ep_events[s->ep_events_off];
   *index = (u64) ep_event->data.ptr;
-  return IP_ERROR_NONE;
+
+  if((ep_event->events & EPOLLERR)) {
+    ep_event->events &= ~EPOLLERR;
+  }
+
+  if((ep_event->events & EPOLLRDHUP) ||
+     (ep_event->events & EPOLLHUP) ||
+     (ep_event->events & EPOLLERR)) {
+    *mode = IP_MODE_DISCONNECT;
+    ep_event->events &= ~EPOLLRDHUP;
+    ep_event->events &= ~EPOLLHUP;    
+    return IP_ERROR_NONE;
+  }
+
+  if(ep_event->events & EPOLLIN) {
+    *mode = IP_MODE_READ;
+    ep_event->events &= ~EPOLLIN;
+    return IP_ERROR_NONE;
+  }
+
+  if(ep_event->events & EPOLLOUT) {
+    ep_event->events &= ~EPOLLOUT;
+
+    if(s->sockets[*index].flags & IP_WRITING) {
+      *mode = IP_MODE_WRITE;
+      return IP_ERROR_NONE;
+    }
+      
+  }
+
+  s->ep_events_off++;
+  s->ret--;
+
+  goto repeat;
+  
 }
 
 IP_DEF int ip_server_client(Ip_Server *s, u64 *index) {
@@ -759,8 +838,7 @@ IP_DEF Ip_Error ip_server_accept(Ip_Server *s, u64 *index, Ip_Address *a) {
   }
 
   struct epoll_event ep_event;
-  // ep_event.events = EPOLLIN | EPOLLRDHUP | EPOLLHUP;
-  ep_event.events = EPOLLIN;
+  ep_event.events = EPOLLIN | EPOLLET | EPOLLRDHUP | EPOLLHUP | EPOLLOUT;
   ep_event.data.ptr = (void *) *index;
   if(epoll_ctl(s->epfd, EPOLL_CTL_ADD, client->_socket, &ep_event) != 0) {
     return ip_error_last();
@@ -777,8 +855,8 @@ IP_DEF Ip_Error ip_server_discard(Ip_Server *s, u64 index) {
   if(epoll_ctl(s->epfd, EPOLL_CTL_DEL, client->_socket, NULL) != 0) {
     return ip_error_last();
   }
-
-  *client = ip_socket_invalid();  
+  ip_socket_close(client);
+  
   s->active_clients--;
 
   return IP_ERROR_NONE;

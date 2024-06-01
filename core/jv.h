@@ -68,10 +68,10 @@ JV_DEF int jv_parse_array(Json_View *view, const char *data, u64 len);
 JV_DEF int jv_parse_object(Json_View *view, const char *data, u64 len);
 JV_DEF int jv_parse_impl(Json_View *view, const char *data, u64 len, const char *target, u64 target_len, Json_View_Type type);
 
-JV_DEF int jv_array_next(Json_View *array, Json_View *sub_view);
+JV_DEF int jv_array_next(Json_View array, Json_View *sub_view, u64 *off);
 JV_DEF int jv_array_get(Json_View array, u64 index, Json_View *value); 
 
-JV_DEF int jv_object_next(Json_View *object, Json_View *key_view, Json_View *value_view);
+JV_DEF int jv_object_next(Json_View object, Json_View *key_view, Json_View *value_view, u64 *off);
 JV_DEF int jv_object_get(Json_View object, const char *key, Json_View *value);
 
 #ifdef JV_IMPLEMENTATION
@@ -272,42 +272,41 @@ JV_DEF int jv_parse_object(Json_View *view, const char *data, u64 len) {
   return 1;
 }
 
-JV_DEF int jv_array_next(Json_View *array, Json_View *sub_view) {
-  JV_ASSERT(array->type == JV_TYPE_ARRAY);
+JV_DEF int jv_array_next(Json_View array, Json_View *sub_view, u64 *off) {
+  JV_ASSERT(array.type == JV_TYPE_ARRAY);
+
+  array.data += *off;
+  array.len  -= *off;
 
   u64 i = 0;
+  if((*off) == 0) i++;
+  
   while(1) {
-    if(i >= array->len) return 0;
-    if(array->data[i] == ']') return 0;    
-    if(array->data[i] == '[') {
-      i++;
-      continue;
-    }
+    if(i >= array.len) return 0;
+    if(array.data[i] == ']') return 0;    
 
     // whitespace
     while(1) {
-      if(i >= array->len) return 0;
-      if(!jv_isspace(array->data[i])) break;
+      if(i >= array.len) return 0;
+      if(!jv_isspace(array.data[i])) break;
       i++;
     }
 
-    if(!jv_parse(sub_view, array->data + i, array->len - i)) {
+    if(!jv_parse(sub_view, array.data + i, array.len - i)) {
       return 0;
     }
     i += sub_view->len;
 
     // whitespace
     while(1) {
-      if(i >= array->len) return 0;
-      if(!jv_isspace(array->data[i])) break;
+      if(i >= array.len) return 0;
+      if(!jv_isspace(array.data[i])) break;
       i++;
     }
 
-    if(i >= array->len) return 0;
-    if(array->data[i] == ']' || array->data[i] == ',') {
-      array->data += i + 1;
-      array->len  -= i + 1;
-      
+    if(i >= array.len) return 0;
+    if(array.data[i] == ']' || array.data[i] == ',') {
+      *off = (*off) + i + 1;
       return 1;
     } else {
       return 0;
@@ -318,26 +317,27 @@ JV_DEF int jv_array_next(Json_View *array, Json_View *sub_view) {
   return 0;
 }
 
-JV_DEF int jv_object_next(Json_View *object, Json_View *key_view, Json_View *value_view) {
-  JV_ASSERT(object->type == JV_TYPE_OBJECT);
+JV_DEF int jv_object_next(Json_View object, Json_View *key_view, Json_View *value_view, u64 *off) {
+  JV_ASSERT(object.type == JV_TYPE_OBJECT);
+
+  object.data += *off;
+  object.len  -= *off;
 
   u64 i = 0;
+  if((*off) == 0) i++;
+  
   while(1) {
-    if(i >= object->len) return 0;
-    if(object->data[i] == '}') return 0;    
-    if(object->data[i] == '{') {
-      i++;
-      continue;
-    }
+    if(i >= object.len) return 0;
+    if(object.data[i] == '}') return 0;    
 
     // whitespace
     while(1) {
-      if(i >= object->len) return 0;
-      if(!jv_isspace(object->data[i])) break;
+      if(i >= object.len) return 0;
+      if(!jv_isspace(object.data[i])) break;
       i++;
     }
 
-    if(!jv_parse(key_view, object->data + i, object->len - i)) {
+    if(!jv_parse(key_view, object.data + i, object.len - i)) {
       return 0;
     }
     if(key_view->type != JV_TYPE_STRING) return 0;
@@ -345,39 +345,37 @@ JV_DEF int jv_object_next(Json_View *object, Json_View *key_view, Json_View *val
 
     // whitespace
     while(1) {
-      if(i >= object->len) return 0;
-      if(!jv_isspace(object->data[i])) break;
+      if(i >= object.len) return 0;
+      if(!jv_isspace(object.data[i])) break;
       i++;
     }
 
-    if(i >= object->len) return 0;
-    if(object->data[i] != ':') return 0;
+    if(i >= object.len) return 0;
+    if(object.data[i] != ':') return 0;
     i++;
 
     // whitespace
     while(1) {
-      if(i >= object->len) return 0;
-      if(!jv_isspace(object->data[i])) break;
+      if(i >= object.len) return 0;
+      if(!jv_isspace(object.data[i])) break;
       i++;
     }
 
-    if(!jv_parse(value_view, object->data + i, object->len - i)) {
+    if(!jv_parse(value_view, object.data + i, object.len - i)) {
       return 0;
     }
     i += value_view->len;
 
     // whitespace
     while(1) {
-      if(i >= object->len) return 0;
-      if(!jv_isspace(object->data[i])) break;
+      if(i >= object.len) return 0;
+      if(!jv_isspace(object.data[i])) break;
       i++;
     }
 
-    if(i >= object->len) return 0;
-    if(object->data[i] == '}' || object->data[i] == ',') {
-      object->data += i + 1;
-      object->len  -= i + 1;
-      
+    if(i >= object.len) return 0;
+    if(object.data[i] == '}' || object.data[i] == ',') {
+      *off = (*off) + i + 1;
       return 1;
     } else {
       return 0;
@@ -390,8 +388,9 @@ JV_DEF int jv_object_next(Json_View *object, Json_View *key_view, Json_View *val
 JV_DEF int jv_array_get(Json_View array, u64 index, Json_View *value) {
 
   index++;
+  u64 off = 0;
   for(;index;index--) {
-    if(!jv_array_next(&array, value)) {
+    if(!jv_array_next(array, value, &off)) {
       return 0;
     }
 
@@ -404,8 +403,9 @@ JV_DEF int jv_object_get(Json_View object, const char *key, Json_View *value) {
 
   u64 key_len = jv_strlen(key);
 
-  Json_View key_view;  
-  while(jv_object_next(&object, &key_view, value)) {
+  Json_View key_view;
+  u64 off = 0;
+  while(jv_object_next(object, &key_view, value, &off)) {
     JV_ASSERT(key_view.type == JV_TYPE_STRING && key_view.len >= 2);
     if(key_view.len - 2 != key_len) {
       continue;

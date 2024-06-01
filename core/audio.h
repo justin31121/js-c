@@ -239,6 +239,10 @@ AUDIO_DEF int audio_fmt_pcm_format(snd_pcm_format_t *format, Audio_Fmt fmt) {
     *format = SND_PCM_FORMAT_S16_LE;
     return 1;
   } break;
+  case AUDIO_FMT_FLT: {
+    *format = SND_PCM_FORMAT_FLOAT_LE;
+    return 1;
+  } break;
   default: {
     return 0;
   } break;
@@ -246,7 +250,10 @@ AUDIO_DEF int audio_fmt_pcm_format(snd_pcm_format_t *format, Audio_Fmt fmt) {
 }
 
 AUDIO_DEF int audio_init(Audio *audio, Audio_Fmt fmt, int channels, int sample_rate) {
-  if(snd_pcm_open(&audio->alsa_snd_pcm, "default", SND_PCM_STREAM_PLAYBACK, 0) < 0) {
+  if(snd_pcm_open(&audio->alsa_snd_pcm,
+		  "default",
+		  SND_PCM_STREAM_PLAYBACK,
+		  SND_PCM_ASYNC) < 0) {
     return 0;
   }
 
@@ -266,7 +273,7 @@ AUDIO_DEF int audio_init(Audio *audio, Audio_Fmt fmt, int channels, int sample_r
 			SND_PCM_ACCESS_RW_INTERLEAVED,
 			channels,
 			sample_rate,
-			0,
+			1,
 			sample_rate / 4) < 0) {
     return 0;
   }

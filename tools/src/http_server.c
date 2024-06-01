@@ -1,10 +1,9 @@
 #include <stdio.h>
+#include <stdarg.h>
+#include <signal.h>
 
 #define IP_IMPLEMENTATION
 #include <core/ip.h>
-
-#define IO_IMPLEMENTATION
-#include <core/io.h>
 
 #define HTTP_IMPLEMENTATION
 #include <core/http.h>
@@ -12,198 +11,437 @@
 #define STR_IMPLEMENTATION
 #include <core/str.h>
 
+#define IO_IMPLEMENTATION
+#include <core/io.h>
+
 #include <core/types.h>
 
-typedef unsigned long long int u64;
+#define STB_SPRINTF_IMPLEMENTATION
+#include <thirdparty/stb_sprintf.h>
 
-typedef enum {
-  ERROR_NONE,
+/* // source: https://stackoverflow.com/questions/180947/base64-decode-snippet-in-c/13935718 */
+/* // author: Polfosol */
+/* str str_builder_append_encode_base64(str_builder *sb, str s) { */
+
+/*   static u8 b64[256] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"; */
   
-  ERROR_APP,
-  ERROR_IP,
-  ERROR_IO,
-} Error_Type;
+/*   u64 len_before = sb->len; */
+
+/*   u64 required_len = ((s.len + 2) / 3 * 4); */
+/*   str_builder_reserve(sb, sb->len + required_len); */
+
+/*   s32 padding = s.len % 3; */
+/*   u64 last = s.len - padding; */
+
+/*   for(u64 i=0;i<last;i+=3) { */
+/*     u32 value = */
+/*       (s.data[i + 0] << 16) | */
+/*       (s.data[i + 1] <<  8) | */
+/*       (s.data[i + 2] <<  0); */
+
+/*     sb->data[sb->len++] = b64[value >> 18]; */
+/*     sb->data[sb->len++] = b64[(value >> 12) & 0x3f]; */
+/*     sb->data[sb->len++] = b64[(value >>  6) & 0x3f]; */
+/*     sb->data[sb->len++] = b64[value & 0x3f]; */
+/*   } */
+/*   if(padding) { */
+/*     padding -= 1; */
+
+/*     s32 value; */
+/*     if(padding) { */
+/*       value = (s.data[last] << 8) | (s.data[last + 1]); */
+/*       sb->data[sb->len++] = b64[(value >> 10) & 0x3f]; */
+/*       sb->data[sb->len++] = b64[(value >> 4) & 0x3f]; */
+/*       sb->data[sb->len++] = b64[(value << 2) & 0x3f]; */
+/*       sb->data[sb->len++] = '='; */
+      
+/*     } else { */
+/*       value = s.data[last]; */
+/*       sb->data[sb->len++] = b64[value >> 2]; */
+/*       sb->data[sb->len++] = b64[(value << 4) & 0x3f]; */
+/*       sb->data[sb->len++] = '='; */
+/*       sb->data[sb->len++] = '='; */
+      
+/*     } */
+
+/*   } */
+
+/*   return str_from(sb->data + len_before, sb->len - len_before); */
+/* } */
+
+/* // source: https://stackoverflow.com/questions/180947/base64-decode-snippet-in-c/13935718 */
+/* // author: Polfosol */
+/* str str_builder_append_decode_base64(str_builder *sb, str s) { */
+
+/*   static u32 b64[256] = { */
+/*     0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, */
+/*     0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, */
+/*     0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, */
+/*     0,  0,  0,  0,  0,  0,  0, 62, 63, 62, 62, 63, */
+/*     52, 53, 54, 55, 56, 57, 58, 59, 60, 61,  0,  0, */
+/*     0,  0,  0,  0,  0,  0,  1,  2,  3,  4,  5,  6, */
+/*     7,  8,  9, 10, 11, 12, 13, 14, 15, 16, 17, 18, */
+/*     19, 20, 21, 22, 23, 24, 25,  0,  0,  0,  0, 63, */
+/*     0, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, */
+/*     37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, */
+/*     49, 50, 51 }; */
+
+
+/*   u64 len_before = sb->len; */
+
+/*   int has_padding = s.len > 0 && (s.len % 4 || s.data[s.len - 1] == '='); */
+/*   u64 len = ((s.len + 3) / 4 - has_padding) * 4; */
+/*   str_builder_reserve(sb, sb->len + (len / 4 * 3 + has_padding + 1)); */
+
+/*   for(u64 i=0;i<len;i+=4) { */
+/*     u32 value = */
+/*       (b64[s.data[i + 0]] << 18) | */
+/*       (b64[s.data[i + 1]] << 12) | */
+/*       (b64[s.data[i + 2]] <<  6) | */
+/*       (b64[s.data[i + 3]]); */
+    
+/*     sb->data[sb->len++] = (u8) (value >> 16); */
+/*     sb->data[sb->len++] = (u8) ((value >> 8) & 0xff); */
+/*     sb->data[sb->len++] = (u8) (value & 0xff); */
+/*   } */
+/*   if(has_padding) { */
+/*     u32 value = */
+/*       (b64[s.data[len + 0]] << 18) | */
+/*       (b64[s.data[len + 1]] << 12); */
+
+/*     sb->data[sb->len++] = (u8) (value >> 16); */
+
+/*     if(s.len > len + 2 && s.data[len + 2] != '=') { */
+/*       value |= b64[s.data[len + 2]] << 6; */
+/*       sb->data[sb->len++] = (u8) ((value >> 8) & 0xff); */
+/*     } */
+/*   } */
+  
+/*   return str_from(sb->data + len_before, sb->len - len_before); */
+/* } */
+
+
+#define WRITES_CAP 4
+
+typedef struct {
+  str message;
+  u64 off;
+} Write_Fixed;
+
+#define WRITE_FILE_CHUNKED_LEN (2 << 13)
+#define WRITE_FILE_QUEUE_DATA_CAP 32
+
+typedef struct {
+  Io_File file;
+  u64 to_write;
+  u8 queue_off;
+  u8 queue_len;
+  u8 queue_data[WRITE_FILE_QUEUE_DATA_CAP];
+} Write_File_Chunked;
 
 typedef enum {
-  APP_ERROR_BUFFER_OVERFLOW,
-  APP_ERROR_NOT_WRITTEN_ENOUGH,
-} App_Error;
+  WRITE_KIND_FIXED,
+  WRITE_KIND_FILE,
+  WRITE_KIND_FILE_CHUNKED,
+} Write_Kind;
 
 typedef struct {
-  Error_Type type;
-  union{
-    Io_Error io_error;
-    Ip_Error ip_error;
-    App_Error app_error;
-  }as;
-} Error;
-
-#define error_io(e) (Error) { .type = ERROR_IO , .as.io_error = (e) }
-#define error_app(e) (Error) { .type = ERROR_APP , .as.app_error = (e) }
-#define error_ip(e) (Error) { .type = ERROR_IP , .as.ip_error = (e) }
-#define error_none() (Error) { .type = ERROR_NONE }
+  Write_Kind kind;
+  union {
+    Write_Fixed fixed;
+    Io_File file;
+    Write_File_Chunked chunked;
+  } as;
+} Write;
 
 typedef struct {
-  Error error;
-  int response_code;
-} Foo;
+  Http http;
 
-#define foo_from(e, r) (Foo) { .error = (e), .response_code = (r) }
+  // Store path/headers/body/response-headers
+  str_builder sb;
+  u64 delim;
+  u64 start;
 
-char* path_to_content_type(str path) {
+  // Write queue
+  Write writes[WRITES_CAP];
+  u64 writes_len;
+  u64 writes_pos;
 
-  if(str_index_ofc(path, ".html") >= 0) {
-    return "text/html";
-  } else {
-    return "application/octet-stream";
+  // Write buffer
+  u8 buf[1 << 13];
+  u64 len;
+
+  // Range
+  s32 from;
+  s32 to;
+
+  // Statistics
+  u64 last_action;
+} Session;
+
+#define session_enqueue(s, w)						\
+  do {									\
+    if((s)->writes_len >= WRITES_CAP) {					\
+      TODO();								\
+    }									\
+    (s)->writes[((s)->writes_pos + (s)->writes_len++) % WRITES_CAP] = (w); \
+  }while(0)
+
+#define session_enqueue_message(s, m) session_enqueue(s, ((Write) {	\
+	.kind = WRITE_KIND_FIXED,					\
+	.as.fixed = (Write_Fixed) { .message = (m), .off = 0, } }))
+
+#define session_enqueue_file(s, f) session_enqueue(s, ((Write) {	\
+	.kind = WRITE_KIND_FILE,					\
+	.as.file = (f) }))
+
+#define session_enqueue_file_chunked(s, f) session_enqueue(s, ((Write) { \
+	.kind = WRITE_KIND_FILE_CHUNKED,				\
+	.as.chunked = (Write_File_Chunked) {				\
+	  .file = (f),							\
+	  .queue_off = WRITE_FILE_QUEUE_DATA_CAP,			\
+	}}))
+
+str str_builder_allocf(str_builder *sb, char *fmt, ...) {
+
+  u64 sb_len = sb->len;
+  u64 available = sb->cap - sb->len;
+  
+  va_list list;
+  va_start(list, fmt);  
+  u64 len = vsnprintf((char *) (sb->data + sb->len), available, fmt, list);
+  va_end(list);
+  
+  if(len + 1 > available) {
+    va_start(list, fmt);    
+    str_builder_reserve(sb, sb->len + len + 1);
+    vsnprintf((char *) (sb->data + sb->len), available, fmt, list);    
+    va_end(list);
   }
+  sb->len += len;
   
+  return str_from(sb->data + sb_len, sb->len - sb_len);
 }
 
-Foo handle_get(Ip_Socket *socket, str _path, str_builder *sb) {
-
-  if(str_eqc(_path, "/")) {
-    _path = str_fromc("/index.html");
+// - translate 'raw_path' into actual 'path'
+// - map '/' to 'index.html' and disallow '/..'
+// - maybe short-circuit and write error to 'session'
+// - allocate 'path' inside 'sb_temp'
+int translate_path(Session *session,
+		   str raw_path,
+		   str_builder *sb,
+		   str *out_path) {
+  if(str_index_ofc(raw_path, "/..") >= 0) {
+    session_enqueue_message(session, str_fromc("HTTP/1.1 405 Not Allowed\r\n"
+					       "Content-Length: 11\r\n"
+					       "Content-Type: text/plain\r\n"
+					       "\r\n"
+					       "Not Allowed"));
+    return 0;
   }
 
-  str_builder_reserve(sb, 1 + _path.len);
+  if(str_eqc(raw_path, "/")) {
+    raw_path = str_fromc("/index.html");
+  }
 
+  str_builder_reserve(sb, sb->len + 1 + raw_path.len);
+  u64 sb_len = sb->len;
+  
   sb->data[sb->len++] = '.';
-    
-  for(u64 i=0;i<_path.len;i++) {
-    char c = _path.data[i];
-      
+  for(u64 i=0;i<raw_path.len;i++) {
+    u8 c = raw_path.data[i];
+
     if(c == '/') {
-      c = IO_DELIM; 
+      c = IO_DELIM;
+    } else {
+      // c = c
     }
 
     sb->data[sb->len++] = c;
   }
-  str path = str_from(sb->data, sb->len);
 
-  u64 written;
-
-  Io_File file;
-  Io_Error io_error = io_file_ropens(&file, path);
-  switch(io_error) {
-  case IO_ERROR_NONE:
-    break;
-  case IO_ERROR_FILE_NOT_FOUND: {
-    int code = 404;
-    str message = str_fromc("HTTP/1.1 404 Not Found\r\n"
-				  "Content-Length: 9\r\n"
-				  "Content-Type: text/plain\r\n"
-				  "\r\n"
-				  "Not Found");
-
-    Ip_Error error = ip_socket_writes(socket, message, &written);
-    if(error != IP_ERROR_NONE) {
-      return foo_from(error_ip(error), code);
-    } else if(written != message.len) {
-      return foo_from(error_app(APP_ERROR_NOT_WRITTEN_ENOUGH), code);
-    } else {
-      return foo_from(error_none(), code);
-    }
-  } break;
-  default: {
-    int code = 500;
-    
-    str message = str_fromc("HTTP/1.1 500 Internal Server Error\r\n"
-				  "Content-Length: 21\r\n"
-				  "Content-Type: text/plain\r\n"
-				  "\r\n"
-				  "Internal Server Error");
-
-    Ip_Error error = ip_socket_writes(socket, message, &written);
-    if(error != IP_ERROR_NONE) {
-      return foo_from(error_ip(error), code);
-    } else if(written != message.len) {
-      return foo_from(error_app(APP_ERROR_NOT_WRITTEN_ENOUGH), code);
-    } else {
-      return foo_from(error_io(io_error), code);
-    }
-  } break;
-  }
-
-  int code = 200;
-
-  unsigned char buf[1024];
-  u64 len = (u64) snprintf((char *) buf, sizeof(buf),
-				 "HTTP/1.1 200 OK\r\n"
-				 "Content-Type: %s\r\n"
-				 "Content-Length: %llu\r\n"
-				 "Connection: keep-alive\r\n"
-				 "\r\n",
-				 path_to_content_type(path),
-				 file.size);
-  if(len > sizeof(buf)) {
-    io_file_close(&file);
-    return foo_from(error_app(APP_ERROR_BUFFER_OVERFLOW), code);
-  }
-  Ip_Error error = ip_socket_write(socket, buf, len, &written);
-  if(error != IP_ERROR_NONE) {
-    return foo_from(error_ip(error), code);
-  }
-  if(written != len) {
-    return foo_from(error_app(APP_ERROR_NOT_WRITTEN_ENOUGH), code);
-  }
+  *out_path = str_from(sb->data + sb_len, sb->len - sb_len);
   
-  while((io_error = io_file_read(&file, buf, sizeof(buf), &len)) == IO_ERROR_NONE) {
-
-    error = ip_socket_write(socket, buf, len, &written);
-    if(error != IP_ERROR_NONE) {
-      return foo_from(error_ip(error), code);
-    }
-    if(written != len) {
-      return foo_from(error_app(APP_ERROR_NOT_WRITTEN_ENOUGH), code);
-    }
-    
-  }
-  if(io_error != IO_ERROR_EOF) {
-    return foo_from(error_io(io_error), code);
-  }
-      
-  io_file_close(&file);
-
-  return foo_from(error_none(), code);
+  return 1;
 }
 
-#define N 1023
+// - create file handle inside 'file' specified by 'path'
+// - on error write to 'session'
+int open_file(Session *session,
+	      str path,
+	      Io_File *file) {
 
-typedef struct {
-  Http http;
-  str_builder sb;
-  int inactive_cycles;
-} Session;
-
-#define MAX_INACTIVE_CYCLES_MS 4 * 1000
-
-#ifdef _WIN32
-#  define MAX_INACTIVE_CYCLES MAX_INACTIVE_CYCLES_MS / 20 // why ?
-#else
-#  define MAX_INACTIVE_CYCLES MAX_INACTIVE_CYCLES_MS
-#endif // _WIN32
-
-Session sessions[N] = {0};
-
-int main(int argc, char **argv) {
-
-  unsigned short port = 8000;
+  switch(io_file_ropens(file, path)) {
+  case IO_ERROR_NONE:
+    // caller of 'open_file' now owns the file
+    return 1;
+  case IO_ERROR_FILE_NOT_FOUND:
+    session_enqueue_message(session, str_fromc("HTTP/1.1 404 Not Found\r\n"
+					       "Content-Length: 9\r\n"
+					       "Content-Type: text/plain\r\n"
+					       "\r\n"
+					       "Not Found"));
+    return 0;
+  default:
+    session_enqueue_message(session, str_fromc("HTTP/1.1 500 Internal Server Error\r\n"
+					       "Content-Length: 21\r\n"
+					       "Content-Type: text/plain\r\n"
+					       "\r\n"
+					       "Internal Server Error"));
+    return 0;
+  }
   
-  if(argc > 1) {
+  
+}
 
-    char *port_arg = argv[1];
+// - guess content_type by potential file-extension
+// - by default return 'application/octet-stream'
+char *guess_content_type(str path) {
+  if(path.len == 0) return "application/octet-stream";
 
-    long long int n;
-    if(!http_parse_s64((unsigned char *) port_arg, strlen(port_arg), &n) || n < 1) {
-      fprintf(stderr, "ERROR: Cannot parse port '%s'\n", port_arg);
-      fprintf(stderr, "USAGE: %s <port> | port in range [1, 65536]\n", argv[0]);
-      return 1;
+  u64 i = path.len - 1;
+  while(i > 0 && path.data[i] != '.') i--;
+
+  str maybe_extension = str_from(path.data + i, path.len - i);
+  if(maybe_extension.len == 0) return "application/octet-stream";  
+
+  char *content_type;
+  if(str_eqc(maybe_extension, ".html")) {
+    content_type = "text/html";
+  } else if(str_eqc(maybe_extension, ".txt")) {
+    content_type = "text/plain";
+  } else if(str_eqc(maybe_extension, ".mkv")) {
+    content_type = "video/x-matroska";
+  } else {
+    content_type = "application/octet-stream";
+  }
+
+  return content_type;
+  
+}
+
+void handle_get(Session *session,
+		str raw_path,
+		str_builder *sb_temp,
+		int encode_chunked) {
+
+  str path;
+  if(!translate_path(session,
+		     raw_path,
+		     sb_temp,
+		     &path)) {
+    return;
+  }
+
+  Io_File file;
+  if(!open_file(session,
+		path,
+		&file)) {
+    return;
+  }
+
+  char *content_type = guess_content_type(path);
+
+  // - allocate 'response-header' inside 'session->sb'
+  // - enqueue 'response-header' and 'response-body'
+
+  u64 from;
+  if(session->from >= 0) {
+    from = (u64) session->from;
+  } else {
+    from = 0;
+  }
+
+  u64 to;
+  if(session->to >= 0) {
+    to = (u64) session->to;
+  } else {
+    to = file.size;
+  }
+  u64 content_length = to - from;
+
+  str response_header;
+  if(content_length == file.size) {
+    if(encode_chunked) {
+      response_header = str_builder_allocf(&session->sb,
+					   "HTTP/1.1 200 OK\r\n"
+					   "Content-Type: %s\r\n"
+					   "Connection: keep-alive\r\n"
+					   "Transfer-Encoding: chunked\r\n"
+					   "Accept-Ranges: bytes\r\n"
+					   "Access-Control-Allow-Origin: *\r\n"
+					   "\r\n",
+					   content_type);
+    } else {
+      response_header = str_builder_allocf(&session->sb,
+					   "HTTP/1.1 200 OK\r\n"
+					   "Content-Type: %s\r\n"
+					   "Connection: keep-alive\r\n"
+					   "Content-Length: %llu\r\n"
+					   "Accept-Ranges: bytes\r\n"
+					   "Access-Control-Allow-Origin: *\r\n"
+					   "\r\n",
+					   content_type,
+					   file.size);
     }
-
-    port = (unsigned short) n;
-  }   
+    
+  } else {
+    if(encode_chunked) {
+      response_header = str_builder_allocf(&session->sb,
+					   "HTTP/1.1 206 Partial Content\r\n"
+					   "Content-Type: %s\r\n"
+					   "Content-Range: %llu-%llu/%llu\r\n"
+					   "Connection: keep-alive\r\n"
+					   "Accept-Ranges: bytes\r\n"
+					   "Access-Control-Allow-Origin: *\r\n"
+					   "\r\n",
+					   content_type,
+					   from, to, file.size);
+    } else {
+      response_header = str_builder_allocf(&session->sb,
+					   "HTTP/1.1 206 Partial Content\r\n"
+					   "Content-Type: %s\r\n"
+					   "Content-Range: %llu-%llu/%llu\r\n"
+					   "Content-Length: %llu\r\n"
+					   "Connection: keep-alive\r\n"
+					   "Accept-Ranges: bytes\r\n"
+					   "Access-Control-Allow-Origin: *\r\n"
+					   "\r\n",
+					   content_type,
+					   from, to, file.size,
+					   content_length);
+    }        
+  }
+  session_enqueue_message(session, response_header);
   
+  if(from != 0) {
+    if(io_file_seek(&file, from) != IO_ERROR_NONE) {
+      TODO();
+    }
+  }
+  file.size = to;
+
+  if(encode_chunked) {
+    session_enqueue_file_chunked(session, file);
+  } else {
+    session_enqueue_file(session, file);
+  }
+
+  
+}
+
+#define N 16
+
+void sig_ignore(int s) {
+  (void) s;
+}
+
+int main() {
+
+  u16 port = 8080;
+
+  signal(SIGPIPE, sig_ignore);
+
   Ip_Server server;
   switch(ip_server_open(&server,
 			port,
@@ -215,20 +453,26 @@ int main(int argc, char **argv) {
     break;
   }
 
-  printf("Serving HTTP on :: port %u (http://[::]:%u/) ...\n",
-	 port,
-	 port); fflush(stdout);
+  // for reading
+  u8 buf[1024];
 
-  unsigned char buf[1024];
-  Ip_Address address;
-  str_builder global_sb = {0};
-  Io_Time time;
+  // temporary buffer for allocations
+  str_builder sb_temp = {0};
+
+  // associated data for each connection
+  Session sessions[N];
+  for(u64 i=0;i<N;i++) {
+    sessions[i].sb = (str_builder) {0};
+  }
+
+  printf("Serving on http://localhost:%u\n", port);
   
   while(1) {
-    u64 index;
 
+    Ip_Mode mode;
+    u64 index;
     int try_again = 0;
-    switch(ip_server_next(&server, &index)) {
+    switch(ip_server_next(&server, &index, &mode)) {
     case IP_ERROR_REPEAT:
       try_again = 1;
       break;
@@ -239,247 +483,473 @@ int main(int argc, char **argv) {
       break;
     }
 
-    assert(N == server.sockets_count - 1);
-    for(u64 i=0;i<server.sockets_count - 1;i++) {
+    for(u64 i=0;try_again && i<N;i++) {
       Ip_Socket *socket = &server.sockets[i];
       if(!(socket->flags & IP_VALID)) {
 	continue;
       }
 
-      if(sessions[i].inactive_cycles >= MAX_INACTIVE_CYCLES) {
-
-	if(ip_socket_address(socket, &address) != IP_ERROR_NONE) {
-	  TODO();
-	}
-	char ip[INET6_ADDRSTRLEN];
-	inet_ntop(address.addr.sin_family, &address.addr.sin_addr, ip, INET6_ADDRSTRLEN);
-
-	io_time_get(&time);
-	printf("%llu:%s - disconnected (forced) [%02d.%02d.%04d %02d:%02d:%02d]\n",
-	       i, ip,
-
-	       time.day,
-	       time.month,
-	       time.year,
-
-	       time.hour,
-	       time.min,
-	       time.sec); fflush(stdout);
-
-	ip_socket_close(socket);
-	ip_server_discard(&server, index);
+      Session *s = &sessions[i];
+      if(s->last_action == 1024 * 1024) {
+	printf("\t[%llu] Closed connection\n", i);
+	ip_server_discard(&server, i);
       } else {
-	sessions[i].inactive_cycles += 1;
+	s->last_action++;
       }
+      
     }
 
-    
     if(try_again) {
       continue;
     }
-    
+
     Ip_Socket *socket = &server.sockets[index];
     if(socket->flags & IP_SERVER) {
 
-      u64 client_index;      
-      switch(ip_server_accept(&server, &client_index, &address)) {
+      Ip_Address address;
+      u64 client_index;
+      Ip_Error error = ip_server_accept(&server, &client_index, &address);
+      switch(error) {
       case IP_ERROR_REPEAT:
 	break;
       case IP_ERROR_NONE:
+        Session *s = &sessions[client_index];
+	s->http = http_default();
+	s->writes_len = 0;
+	s->writes_pos = 0;
+	s->sb.len = 0;
+	s->len = 0;
+	s->from = -1;
+	s->to = -1;
+	s->last_action = 0;
+	s->delim = 0;
+	s->start = 0;
 
-	io_time_get(&time);
-
-	; char ip[INET6_ADDRSTRLEN];
-	inet_ntop(address.addr.sin_family, &address.addr.sin_addr, ip, INET6_ADDRSTRLEN);
-
-	printf("%llu:%s - connected [%02d.%02d.%04d %02d:%02d:%02d]\n",
-	       client_index, ip,
-	       
-	       time.day,
-	       time.month,
-	       time.year,
-
-	       time.hour,
-	       time.min,
-	       time.sec); fflush(stdout);
-
-	sessions[client_index].http = http_default();
-	sessions[client_index].sb.len = 0;
-	sessions[client_index].inactive_cycles = 0;
+	printf("[%llu] Accepted\n", client_index);
+	
 	break;
       default:
+	printf("error: %d\n", error);
 	TODO();
 	break;
       }
-	
+      
     } else { // socket->flags & IP_CLIENT
+      Session *s = &sessions[index];
 
-      Http *http = &sessions[index].http;
-      str_builder *sb = &sessions[index].sb;
-      sessions[index].inactive_cycles = 0;
-	
-      u64 read;
-      switch(ip_socket_read(socket, buf, sizeof(buf), &read)) {
-      case IP_ERROR_CONNECTION_ABORTED:
-      case IP_ERROR_CONNECTION_CLOSED:
-	
-	io_time_get(&time);
-	printf("%llu:xxx.x.x.x - disconnected [%02d.%02d.%04d %02d:%02d:%02d]\n",
-	       index,
-	       
-	       time.day,
-	       time.month,
-	       time.year,
+      s->last_action = 0;
 
-	       time.hour,
-	       time.min,
-	       time.sec); fflush(stdout);
+      switch(mode) {
+      case IP_MODE_READ: {
+	int keep_reading = 1;
+	while(keep_reading) {
+	  
+	  u64 read;
+	  Ip_Error error = ip_socket_read(socket, buf, sizeof(buf), &read);
+	  switch(error) {
+	  case IP_ERROR_NONE:
+	    break;
+	  case IP_ERROR_REPEAT:
+	    keep_reading = 0;
+	    break;
+	  case IP_ERROR_CONNECTION_ABORTED:
+	    keep_reading = 0;
+	    break;
+	  default:
+	    printf("%d\n", error);
+	    TODO();
+	    break;
+	  }
+
+	  if(!keep_reading) {
+	    break;
+	  }
+
+	  int bad_request = 0;
+
+	  u8 *window = buf;
+	  u64 window_len = read;
+	  while(!bad_request && window_len) {
+	    switch(http_process(&s->http, &window, &window_len)) {
+	    case HTTP_EVENT_ERROR: {
+	      bad_request = 1;
+	    } break;
+	    case HTTP_EVENT_KEY: {
+	      str_builder_append(&s->sb, s->http.body_data, s->http.body_len);
+	      s->delim = s->sb.len;
+	    } break;
+	    case HTTP_EVENT_VALUE:
+	    case HTTP_EVENT_BODY: {
+	      str_builder_append(&s->sb, s->http.body_data, s->http.body_len);
+	    } break;
+	    case HTTP_EVENT_PROCESS: {
+	      // sb.data: '%path%%key%%value%'
+	      //                 ^
+	      //                 start
+	      //                      
+	      //                      delim
+	      str key = str_from(s->sb.data + s->start, s->delim - s->start);
+	      str value = str_from(s->sb.data + s->delim, s->sb.len - s->delim);
+
+	      s->sb.len = s->start;
+	      s->delim = 0;
+
+	      switch(__http_process_header(&s->http,
+					   key.data, key.len,
+					   value.data, value.len)) {
+	      case HTTP_EVENT_ERROR:
+		bad_request = 1;
+		break;
+	      case HTTP_EVENT_PATH:
+		str_builder_append(&s->sb, s->http.body_data, s->http.body_len);
+		s->start = s->sb.len;
+		break;
+	      case HTTP_EVENT_NOTHING:
+
+		printf("\t'"str_fmt"': '"str_fmt"'\n", str_arg(key), str_arg(value));
+		
+		if(str_eqc(key, "Range")) {
+		  str name;
+		  str_chop_by(&value, "=", &name);
+		
+		  str from;
+		  str_chop_by(&value, "-", &from);
+		  str to = value;
+
+		  s64 n;
+		  if(from.len > 0) {
+		    if(!str_parse_s64(from, &n)) {
+		      TODO();
+		    }
+		    s->from = (s32) n;
+		  
+		  } else {
+		    s->from = -1;
+		  
+		  }
+
+		  if(to.len > 0) {
+		    if(!str_parse_s64(to, &n)) {
+		      TODO();
+		    }
+		    s->to = (s32) n;
+		  
+		  } else {
+		    s->to = -1;
+		  }
+		}
+		  
+
+		break;
+	      default:
+		UNREACHABLE();
+	      }
+	    } break;
+
+	    default:
+	      break;
+	    }
+	  }
+
+	  if(!((s->http.flags & HTTP_DONE) || bad_request)) {
+	    continue;
+	  }
+	  keep_reading = 0;
+
+	  if(s->writes_len == 0) {
+	    ip_server_register_for_writing(&server, index);
+	  }
+
+	  if(bad_request) {
+	    session_enqueue_message(s, str_fromc("HTTP/1.1 400 Bad Request\r\n"
+						 "Content-Length: 11\r\n"
+						 "Content-Type: text/plain\r\n"
+						 "\r\n"
+						 "Bad Request"));
+	    continue;
+	  }	  
+
+	  // sb.data: '%path%%body%'
+	  //                 ^ 
+	  //                 start
+	  str params = str_from(s->sb.data, s->start);
+	  str path;
+	  str_chop_by(&params, "?", &path);
+
+	  // str body = str_from(s->sb.data + s->start, s->sb.len - s->start);
+
+	  printf("\t[%llu] %s '%.*s'\n",
+		 index,
+		 HTTP_METHOD_NAME[s->http.method],
+		 str_arg(path));
+
+	  // StreamTitle='A nice song';StreamUrl=''
+	  // https://gist.github.com/niko/2a1d7b2d109ebe7f7ca2f860c3505ef0
+
+	  switch(s->http.method) {
+	  case HTTP_METHOD_GET:
+	    handle_get(s, path, &sb_temp, 0);
+	    break;
+	  default:
+	    session_enqueue_message(s, str_fromc("HTTP/1.1 501 Not Implemented\r\n"
+						 "Content-Length: 15\r\n"
+						 "Content-Type: text/plain\r\n"
+						 "\r\n"
+						 "Not Implemented"));
+	    break;
+	  }
+	  sb_temp.len = 0;
+	}
 	
+      } break;
+
+	
+      case IP_MODE_WRITE: {
+
+	if(s->writes_len == 0) {
+	  UNREACHABLE();
+	}
+
+	int keep_writing = 1;
+	while(keep_writing && s->writes_len > 0) {
+	  
+	  Write *w = &s->writes[s->writes_pos];
+	  switch(w->kind) {
+	  case WRITE_KIND_FIXED: {
+	    Write_Fixed *fixed = &w->as.fixed;
+
+	    u64 written;
+	    switch(ip_socket_write(socket,
+				   fixed->message.data + fixed->off,
+				   fixed->message.len - fixed->off,
+				   &written)) {
+	    case IP_ERROR_NONE:
+	      fixed->off += written;
+	      break;
+	    case IP_ERROR_REPEAT:
+	      keep_writing = 0;
+	      break;
+	    default:
+	      TODO();
+	      break;
+	    }
+
+	    if(fixed->off == fixed->message.len) {
+	      s->writes_pos = (s->writes_pos + 1) % WRITES_CAP;
+	      s->writes_len--;
+	    }
+	    
+	  } break;
+	  case WRITE_KIND_FILE:{
+	    	  
+	    Io_File *file = &w->as.file;
+	    
+	    u64 can_read = file->size - file->pos;
+	    // if there are bytes to read and
+	    // there is space inside 's->buf' =>
+	    // read from 'file' to 's->buf'
+	    if(can_read > 0 &&
+	       s->len < sizeof(s->buf)) {
+
+	      u64 read;
+	      switch(io_file_read(file,
+				  s->buf + s->len,
+				  sizeof(s->buf) - s->len,
+				  &read)) {
+	      case IO_ERROR_NONE:
+		break;
+	      case IO_ERROR_EOF:
+		break;
+	      default:
+		TODO();
+	      }
+	      s->len += read;
+	    }
+
+	    // if 's->buf' is empty, 'file' is fully transmitted
+	    // otherwise write 's->buf'
+	    if(s->len > 0) {
+
+	      u64 written;
+	      switch(ip_socket_write(socket,
+				     s->buf,
+				     s->len,
+				     &written)) {
+	      case IP_ERROR_NONE:
+		memmove(s->buf, s->buf + written, s->len - written);
+		s->len -= written;
+		break;
+	      case IP_ERROR_REPEAT:
+		keep_writing = 0;
+		/* printf("stop writing: %llu | %d. s->len: %llu, file->pos: %llu, file->size: %llu\n", index, socket->_socket, s->len, file->pos, file->size); */
+		break;
+	      default:
+		printf("\t[%llu] Error happened on socket\n", index);
+		keep_writing = 0;
+		s->writes_len = 0;
+		io_file_close(file);
+		break;
+	      }
+	    
+	    } else { // s->len == 0
+	      s->writes_pos = (s->writes_pos + 1) % WRITES_CAP;
+	      s->writes_len--;
+	      io_file_close(file);
+	      
+	    }
+
+	    
+	  } break;
+	  case WRITE_KIND_FILE_CHUNKED: {
+	    Write_File_Chunked *chunked = &w->as.chunked;
+	    Io_File *file = &chunked->file;
+
+	    if(chunked->queue_off == WRITE_FILE_QUEUE_DATA_CAP) {
+	      // Constructor
+
+	      u64 remaining = file->size - file->pos;
+	      if(remaining < WRITE_FILE_CHUNKED_LEN) {
+		chunked->to_write = remaining;
+	      } else {
+		chunked->to_write = WRITE_FILE_CHUNKED_LEN;
+	      }
+	      
+	      chunked->queue_len =
+		(u8) stbsp_snprintf((char *) chunked->queue_data,
+				    WRITE_FILE_QUEUE_DATA_CAP,
+				    "%llx\r\n",
+				    chunked->to_write);
+	      chunked->queue_off = 0;
+	    }
+
+	    while((chunked->queue_len > 0 || (file->pos < file->size)) &&
+		  s->len < sizeof(s->buf)) {
+
+	      while((chunked->queue_len > 0) && s->len < sizeof(s->buf)) {
+		s->buf[s->len++] = chunked->queue_data[chunked->queue_off];
+		chunked->queue_off++;
+		chunked->queue_len--;
+	      }
+
+	      if(s->len == sizeof(s->buf) ||
+		 (file->pos == file->size)) {
+		break;
+	      }
+
+	      u64 can_write = sizeof(s->buf) - s->len;
+	      u64 to_read;
+	      if(chunked->to_write > can_write) {
+		to_read = can_write;
+	      } else {
+		to_read = chunked->to_write;
+	      }
+
+	      u64 read;
+	      switch(io_file_read(file,
+				  s->buf + s->len,
+				  to_read,
+				  &read)) {
+	      case IO_ERROR_NONE:
+	      case IO_ERROR_EOF:
+		break;
+	      default:
+		TODO();
+	      }
+	      s->len += read;
+	      chunked->to_write -= read;
+
+	      if(chunked->to_write == 0) {
+
+		u64 remaining = file->size - file->pos;
+		if(remaining < WRITE_FILE_CHUNKED_LEN) {
+		  chunked->to_write = remaining;
+		} else {
+		  chunked->to_write = WRITE_FILE_CHUNKED_LEN;
+		}
+
+		char *fmt;
+		if(chunked->to_write == 0) {
+		  fmt = "\r\n%llx\r\n\r\n";
+		} else {
+		  fmt = "\r\n%llx\r\n";
+		}
+
+		chunked->queue_len =
+		  (u8) stbsp_snprintf((char *) chunked->queue_data,
+				      WRITE_FILE_QUEUE_DATA_CAP,
+				      fmt,
+				      chunked->to_write);
+		chunked->queue_off = 0;
+	      }
+	      
+	    }
+
+	    if(s->len > 0) {
+	      u64 written;
+	      switch(ip_socket_write(socket,
+				     s->buf,
+				     s->len,
+				     &written)) {
+	      case IP_ERROR_NONE:
+		memmove(s->buf, s->buf + written, s->len - written);
+		s->len -= written;
+		break;
+	      case IP_ERROR_REPEAT:
+		keep_writing = 0;
+		break;
+	      default:
+	        keep_writing = 0;
+		s->writes_len = 0;
+		io_file_close(file);
+		break;
+	      }
+
+	      
+	    } else { // s->len == 0
+	      s->writes_pos = (s->writes_pos + 1) % WRITES_CAP;
+	      s->writes_len--;
+	      io_file_close(file);
+
+	    }
+	    
+	  } break;
+	  default:
+	    TODO();
+	    
+	  }
+	  
+	}
+
+	if(s->writes_len == 0) {
+	  s->http = http_default();
+	  s->sb.len = 0;
+	  s->writes_pos = 0;
+	  s->len = 0;
+	  s->from = -1;
+	  s->to = -1;
+	  s->last_action = 0;
+	  s->delim = 0;
+	  s->start = 0;
+
+	  printf("\t[%llu] Done\n", index);
+	  
+	  ip_server_unregister_for_writing(&server, index);
+	}
+
+	
+      } break;
+	
+      case IP_MODE_DISCONNECT:
+	printf("[%llu] Disconnected\n", index);
 	ip_server_discard(&server, index);
 	break;
-      case IP_ERROR_NONE:
-	break;
-      default:
-	TODO();
-	break;
       }
-
-      if(!(socket->flags & IP_VALID)) {
-	continue;
-      }
-	
-      int bad_request = 0;
-
-      unsigned char *buffer = buf;
-      u64 len = read;
-      while(len) {
-	switch(http_process(http, &buffer, &len)) {
-	case HTTP_EVENT_ERROR:
-	  bad_request = 1;
-	  break;	  
-	case HTTP_EVENT_PATH: 
-	  ;
-	  str params = str_from(http->value, http->value_len);
-	  str path;
-	  str_chop_by(&params, "?", &path);	    
-	  str_builder_appends(sb, path);
-	    
-	  break;
-	case HTTP_EVENT_HEADER:
-	case HTTP_EVENT_BODY:
-	case HTTP_EVENT_NOTHING:
-	  break;
-	}
-      }
-    
-      if(bad_request) {
-
-	u64 written;
-	str message = str_fromc("HTTP/1.1 400 Bad Request\r\n"
-				      "Content-Length: 11\r\n"
-				      "Content-Type: text/plain\r\n"
-				      "\r\n"
-				      "Bad Request");
-	Ip_Error error = ip_socket_writes(socket, message, &written);
-	if(error != IP_ERROR_NONE) {
-	  TODO();
-	}
-	if(written != message.len) {
-	  TODO();
-	}
-
-	ip_socket_close(socket);
-	continue;
-      }
-	
-      if(!(http->flags & HTTP_DONE)) {
-	continue;
-      }
-
-      str path = str_from(sb->data, sb->len);
-
-      Foo foo;
-      switch(http->method) {
-      case HTTP_METHOD_GET:
-	foo = handle_get(socket, path, &global_sb);
-	break;
-      default:
-	; int code = 501;
-
-	u64 written;
-	str message = str_fromc("HTTP/1.1 501 Not Implemented\r\n"
-				      "Content-Length: 15\r\n"
-				      "Content-Type: text/plain\r\n"
-				      "\r\n"
-				      "Not Implemented");
-	Ip_Error ip_error = ip_socket_writes(socket, message, &written);
-	if(ip_error != IP_ERROR_NONE) {
-	  foo = foo_from(error_ip(ip_error), code);
-	} else if(written != message.len) {
-	  foo = foo_from(error_app(APP_ERROR_NOT_WRITTEN_ENOUGH), code);
-	} else {
-	  foo = foo_from(error_none(), code);
-	}
-	  
-	break;
-      }
-
-      // ::ffff:127.0.0.1 - - [15/Apr/2024 08:21:43] "GET / HTTP/1.1" 200 -
-      if(ip_socket_address(socket, &address) != IP_ERROR_NONE) {
-        TODO();
-      }
-      char ip[INET6_ADDRSTRLEN];
-      inet_ntop(address.addr.sin_family, &address.addr.sin_addr, ip, INET6_ADDRSTRLEN);
-
-      io_time_get(&time);
-      printf("%llu:%s - - [%02d.%02d.%04d %02d:%02d:%02d] \"%s "str_fmt" HTTP/1.1\" %d -\n",
-	     index,
-	     ip,
-	     
-	     time.day,
-	     time.month,
-	     time.year,
-
-	     time.hour,
-	     time.min,
-	     time.sec,
-
-	     HTTP_METHOD_NAME[http->method],
-
-	     str_arg(path),
-	     
-	     foo.response_code); fflush(stdout);
-
-      Error error = foo.error;
-      switch(error.type) {
-
-      case ERROR_NONE:
-	// pass
-	break;
-
-      case ERROR_IO: {
-	TODO();
-      } break;
-
-      case ERROR_APP: {
-	TODO();
-      } break;
-
-      case ERROR_IP: {
-	TODO();
-      } break;
-	  
-      }
-
-      *http = http_default();
-      sb->len = 0;
-
-      global_sb.len = 0;
-    }
       
+    }
     
   }
 
   ip_server_close(&server);
+  
   return 0;
 }
