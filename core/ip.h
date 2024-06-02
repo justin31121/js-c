@@ -134,6 +134,7 @@ IP_DEF void ip_socket_close(Ip_Socket *s);
 #define IP_SERVER_EP_EVENTS 12
 
 typedef struct {
+  
   Ip_Socket *sockets; // [client1, client2, ..., server]  
 
   u64 active_clients;
@@ -141,12 +142,15 @@ typedef struct {
   s32 ret;
 
 #ifdef _WIN32
-  Ip_Fd_Set set;
+  Ip_Fd_Set set_reading;
+  u64 off;
+  Ip_Fd_Set set_writing;
 #else
   struct epoll_event ep_events[IP_SERVER_EP_EVENTS];
   s32 ep_events_off;
   int epfd;
 #endif // _WIN32
+
 
 } Ip_Server;
 
@@ -186,6 +190,9 @@ IP_DEF Ip_Error ip_error_last() {
   switch(last_error) {
   case 0:
     return IP_ERROR_NONE;
+  case 10014:
+  case 10038:
+    return IP_ERROR_NOT_A_SOCKET;
   case 10054:
     return IP_ERROR_CONNECTION_CLOSED;
   case 10053:
@@ -380,7 +387,8 @@ IP_DEF Ip_Error ip_server_open(Ip_Server *s,
   s->ret = -1;
   s->active_clients = 0;
   s->sockets = NULL;
-  s->set.fd_array = NULL;
+  s->set_reading.fd_array = NULL;
+  s->set_writing.fd_array = NULL;
 
   u64 n = number_of_clients + 1;
   // s->sockets_count = n + (16 - (n % 16));
@@ -391,8 +399,11 @@ IP_DEF Ip_Error ip_server_open(Ip_Server *s,
     s->sockets[i] = ip_socket_invalid();
   }
 
-  s->set.fd_array = IP_ALLOC(s->sockets_count * sizeof(SOCKET));
-  if(!s->set.fd_array) ip_return_defer(IP_ERROR_ALLOC_FAILED);
+  s->set_reading.fd_array = IP_ALLOC(s->sockets_count * sizeof(SOCKET));
+  if(!s->set_reading.fd_array) ip_return_defer(IP_ERROR_ALLOC_FAILED);
+
+  s->set_writing.fd_array = IP_ALLOC(s->sockets_count * sizeof(SOCKET));
+  if(!s->set_writing.fd_array) ip_return_defer(IP_ERROR_ALLOC_FAILED);
 
   Ip_Error error = ip_socket_sopen(&s->sockets[s->sockets_count - 1], port, 0);
   if(error != IP_ERROR_NONE) {
@@ -402,44 +413,54 @@ IP_DEF Ip_Error ip_server_open(Ip_Server *s,
  defer:
   if(result != IP_ERROR_NONE) {
     if(s->sockets) IP_FREE(s->sockets);
-    if(s->set.fd_array) IP_FREE(s->set.fd_array);
+    if(s->set_reading.fd_array) IP_FREE(s->set_reading.fd_array);
+    if(s->set_writing.fd_array) IP_FREE(s->set_writing.fd_array);
   }
   return result;
   
 }
 
 IP_DEF Ip_Error ip_server_next(Ip_Server *s,
-			       u64 *index) {
+			       u64 *index,
+			       Ip_Mode *mode) {
   if(s->ret == -2) {
     return IP_ERROR_REPEAT;
   }
   
   if(s->ret == -1) {
 
-    FD_ZERO((fd_set *) &s->set);
+    FD_ZERO((fd_set *) &s->set_reading);
+    FD_ZERO((fd_set *) &s->set_writing);
 
     s->active_clients = 0;
     
     for(u64 i=0;i<s->sockets_count;i++) {
       Ip_Socket *socket = &s->sockets[i];
       
-      if(socket->flags & IP_VALID) {
-	FD_SET(socket->_socket, (fd_set *) &s->set);
-	s->active_clients++;
+      if(!(socket->flags & IP_VALID)) {
+	continue;
       }
+      FD_SET(socket->_socket, (fd_set *) &s->set_reading);
+      s->active_clients++;
+
+      if((i == s->sockets_count - 1) ||
+	 !(socket->flags & IP_WRITING)) {
+	continue;
+      }
+      FD_SET(socket->_socket, (fd_set *) &s->set_writing);
     }
-    // Exclude server-socket
     s->active_clients--;
     
     struct timeval timeout;
     timeout.tv_sec  = 0;
-    timeout.tv_usec = 1;
+    timeout.tv_usec = 16;
     
-    s->ret = select(0,
-		    (fd_set *) &s->set,
-		    NULL,
+    s->ret = select(s->sockets_count + 1,
+		    (fd_set *) &s->set_reading,
+		    (fd_set *) &s->set_writing,
 		    NULL,
 		    &timeout);
+    s->off = 0;
 
     if(s->ret == SOCKET_ERROR) {
       s->ret = -2;
@@ -456,18 +477,43 @@ IP_DEF Ip_Error ip_server_next(Ip_Server *s,
     return IP_ERROR_REPEAT;
   }
 
-  for(u64 i=0;i<s->sockets_count;i++) {
+  // s->off, iterates from 0 to s->sockets_count, in 2 modes
+  // s->off: 0, index: 0, mode: reading
+  // s->off: 1, index: 0, mode: writing
+  // s->off: 2, index: 1, mode: reading
+  // s->off: 3, index: 1, mode: writing
+  // ...
+  for(;s->off<s->sockets_count*2;) {
+    u64 i = s->off / 2;
+
     if(!(s->sockets[i].flags & IP_VALID)) {
+      s->off += 2;
       continue;
     }
 
-    if(!FD_ISSET(s->sockets[i]._socket, (fd_set *) &s->set)) {
-      continue;
-    }
+    if(!(s->off & 0x1)) {
+      s->off++;
 
-    *index = i;
-    s->ret -= 1;
-    return IP_ERROR_NONE;
+      if(FD_ISSET(s->sockets[i]._socket, (fd_set *) &s->set_reading)) { 
+	*index = i;
+	*mode = IP_MODE_READ;
+	s->ret -= 1;
+	return IP_ERROR_NONE;
+	
+      }
+    }
+    s->off++;
+    
+    if((i != s->sockets_count - 1) &&
+       (s->sockets[i].flags & IP_WRITING) &&
+       FD_ISSET(s->sockets[i]._socket, (fd_set *) &s->set_writing)) {
+      *index = i;
+      *mode = IP_MODE_WRITE;
+      s->ret -= 1;
+      return IP_ERROR_NONE;
+    }
+    
+
   }
 
   s->ret = -2;
@@ -510,7 +556,8 @@ IP_DEF Ip_Error ip_server_accept(Ip_Server *s, u64 *index, Ip_Address *a) {
 IP_DEF void ip_server_close(Ip_Server *s) {
   ip_socket_close(&s->sockets[s->sockets_count - 1]);
   IP_FREE(s->sockets);
-  IP_FREE(s->set.fd_array);
+  IP_FREE(s->set_reading.fd_array);
+  IP_FREE(s->set_writing.fd_array);
 }
 
 IP_DEF Ip_Error ip_server_discard(Ip_Server *s, u64 index) {
@@ -696,16 +743,6 @@ IP_DEF Ip_Error ip_socket_accept(Ip_Socket *s, Ip_Socket *client, Ip_Address *a)
   return IP_ERROR_NONE;
 }
 
-IP_DEF void ip_server_register_for_writing(Ip_Server *s, u64 index) {
-  Ip_Socket *client = &s->sockets[index];
-  client->flags |= IP_WRITING;
-}
-
-IP_DEF void ip_server_unregister_for_writing(Ip_Server *s, u64 index) {
-  Ip_Socket *client = &s->sockets[index];
-  client->flags &= ~IP_WRITING;
-}
-
 IP_DEF Ip_Error ip_server_open(Ip_Server *s, u16 port, u64 number_of_clients) {
 
   Ip_Error result = IP_ERROR_NONE;
@@ -869,6 +906,16 @@ IP_DEF void ip_server_close(Ip_Server *s) {
 }
 
 #endif // _WIN32
+
+IP_DEF void ip_server_register_for_writing(Ip_Server *s, u64 index) {
+  Ip_Socket *client = &s->sockets[index];
+  client->flags |= IP_WRITING;
+}
+
+IP_DEF void ip_server_unregister_for_writing(Ip_Server *s, u64 index) {
+  Ip_Socket *client = &s->sockets[index];
+  client->flags &= ~IP_WRITING;
+}
 
 #endif // IP_IMPLEMENTATION
 
