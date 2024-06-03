@@ -440,7 +440,7 @@ int main() {
 
   u16 port = 8080;
 
-  signal(SIGPIPE, sig_ignore);
+  // signal(SIGPIPE, sig_ignore);
 
   Ip_Server server;
   switch(ip_server_open(&server,
@@ -465,7 +465,7 @@ int main() {
     sessions[i].sb = (str_builder) {0};
   }
 
-  printf("Serving on http://localhost:%u\n", port);
+  printf("Serving on http://localhost:%u\n", port); fflush(stdout);
   
   while(1) {
 
@@ -525,7 +525,7 @@ int main() {
 	s->delim = 0;
 	s->start = 0;
 
-	printf("[%llu] Accepted\n", client_index);
+	printf("[%llu] Accepted\n", client_index); fflush(stdout);
 	
 	break;
       default:
@@ -552,7 +552,10 @@ int main() {
 	  case IP_ERROR_REPEAT:
 	    keep_reading = 0;
 	    break;
+	  case IP_ERROR_CONNECTION_CLOSED:
 	  case IP_ERROR_CONNECTION_ABORTED:
+	    printf("[%llu] Disconnected\n", index); fflush(stdout);
+	    ip_server_discard(&server, index);
 	    keep_reading = 0;
 	    break;
 	  default:
@@ -606,7 +609,7 @@ int main() {
 		break;
 	      case HTTP_EVENT_NOTHING:
 
-		printf("\t'"str_fmt"': '"str_fmt"'\n", str_arg(key), str_arg(value));
+		printf("\t'"str_fmt"': '"str_fmt"'\n", str_arg(key), str_arg(value)); fflush(stdout);
 		
 		if(str_eqc(key, "Range")) {
 		  str name;
@@ -681,7 +684,7 @@ int main() {
 	  printf("\t[%llu] %s '%.*s'\n",
 		 index,
 		 HTTP_METHOD_NAME[s->http.method],
-		 str_arg(path));
+		 str_arg(path)); fflush(stdout);
 
 	  // StreamTitle='A nice song';StreamUrl=''
 	  // https://gist.github.com/niko/2a1d7b2d109ebe7f7ca2f860c3505ef0
