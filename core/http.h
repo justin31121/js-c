@@ -41,6 +41,9 @@ typedef unsigned long long Http_u64;
 #  define HTTP_DEF static inline
 #endif // HTTP_DEF
 
+#define HTTP_PORT 80
+#define HTTPS_PORT 443
+
 HTTP_DEF int http_parse_s64(u8 *data, u64 len, s64 *n);
 HTTP_DEF int http_equals_ignorecase(u8 *data, u64 len, char *cstr);
 
@@ -59,11 +62,15 @@ HTTP_DEF int http_equals_ignorecase(u8 *data, u64 len, char *cstr);
 #define HTTP_REQUEST_BODY_CONTENT_LEN 1
 #define HTTP_REQUEST_BODY_CHUNKED 2
 
-#define HTTP_METHODS_X					\
-  HTTP_METHOD_X(GET)					\
-       HTTP_METHOD_X(POST)				\
-       HTTP_METHOD_X(DELETE)				\
+#define HTTP_METHODS_X				\
+  HTTP_METHOD_X(GET)				\
+       HTTP_METHOD_X(POST)			\
+       HTTP_METHOD_X(DELETE)			\
        HTTP_METHOD_X(HEAD)			\
+       HTTP_METHOD_X(PUT)			\
+       HTTP_METHOD_X(PATCH)			\
+       HTTP_METHOD_X(OPTIONS)			\
+    
 
 typedef enum {
   HTTP_METHOD_NONE = 0,
@@ -133,10 +140,9 @@ HTTP_DEF Http_Event http_process(Http *h, u8 **data, u64 *len);
 
 static char *HTTP_METHOD_NAME[]= {
   [HTTP_METHOD_NONE] = "none",
-  [HTTP_METHOD_GET] = "GET",  
-  [HTTP_METHOD_POST] = "POST",
-  [HTTP_METHOD_DELETE] = "DELETE",
-  [HTTP_METHOD_HEAD] = "HEAD",
+#define HTTP_METHOD_X(n) [ HTTP_METHOD_##n ] = #n,
+  HTTP_METHODS_X
+#undef HTTP_METHOD_X
 };
 
 HTTP_DEF int http_parse_s64(u8 *data, u64 len, s64 *n) {

@@ -5,23 +5,23 @@
 #define AUDIO_IMPLEMENTATION
 #include <core/audio.h>
 
-#define IO_IMPLEMENTATION
-#include <core/io.h>
+#define FS_IMPLEMENTATION
+#include <core/fs.h>
 
 #define MINIMP3_IMPLEMENTATION
 #include <thirdparty/minimp3.h>
 
 #include <core/types.h>
 
-int wav_io_read(void *opaque, u8 *data, u64 len) {
+int wav_fs_read(void *opaque, u8 *data, u64 len) {
 
   u64 read;
-  Io_Error error = io_file_read((Io_File *) opaque,
+  Fs_Error error = fs_file_read((Fs_File *) opaque,
 				data,
 				len,
 				&read);
 
-  if(error != IO_ERROR_NONE ||
+  if(error != FS_ERROR_NONE ||
      read != len) {
     return 0;
   }
@@ -29,8 +29,8 @@ int wav_io_read(void *opaque, u8 *data, u64 len) {
   return 1;
 }
 
-int wav_io_seek(void *opaque, u64 offset) {
-  return io_file_seek((Io_File *) opaque, offset) == IO_ERROR_NONE;
+int wav_fs_seek(void *opaque, u64 offset) {
+  return fs_file_seek((Fs_File *) opaque, offset) == FS_ERROR_NONE;
 }
 
 int main(s32 argc, char **argv) {
@@ -43,18 +43,18 @@ int main(s32 argc, char **argv) {
   }
   char *filepath = argv[1];
 
-  Io_File file;
-  Io_Error error = io_file_ropenc(&file, filepath);
+  Fs_File file;
+  Fs_Error error = fs_file_ropenc(&file, filepath);
   switch(error) {
-  case IO_ERROR_NONE:
+  case FS_ERROR_NONE:
     // pass
     break;
-  case IO_ERROR_FILE_NOT_FOUND:
+  case FS_ERROR_FILE_NOT_FOUND:
     fprintf(stderr, "ERROR: Cannot find file: '%s'\n", filepath);
     return 1;
     break;
   default:
-    panic("Unhandled io_error: %d\n", error);
+    panic("Unhandled fs_error: %d\n", error);
     break;
   }
 
@@ -71,12 +71,12 @@ int main(s32 argc, char **argv) {
   Wav_Decoder decoder;
   if(wav_decoder_open(&decoder,
 		      &file,
-		      wav_io_read,
-		      wav_io_seek)) {
+		      wav_fs_read,
+		      wav_fs_seek)) {
     kind = KIND_WAV;
   } else {
     
-    if(io_file_seek(&file, 0) != IO_ERROR_NONE) {
+    if(fs_file_seek(&file, 0) != FS_ERROR_NONE) {
       TODO();
     }
     
@@ -84,7 +84,7 @@ int main(s32 argc, char **argv) {
   
   u8 buf[1024];
   u64 buf_len = 0;  
-  if(io_file_read(&file, buf, sizeof(buf), &buf_len) != IO_ERROR_NONE) {
+  if(fs_file_read(&file, buf, sizeof(buf), &buf_len) != FS_ERROR_NONE) {
     TODO();
   }
 
@@ -119,7 +119,7 @@ int main(s32 argc, char **argv) {
     break;
   case KIND_MP3:
     buf_len = 0;
-    if(io_file_seek(&file, 0) != IO_ERROR_NONE) {
+    if(fs_file_seek(&file, 0) != FS_ERROR_NONE) {
       TODO();
     }
     
@@ -154,7 +154,7 @@ int main(s32 argc, char **argv) {
       
       u64 to_read = sizeof(buf) - buf_len;
       u64 read;
-      if(io_file_read(&file, buf + buf_len, to_read, &read) != IO_ERROR_NONE) {
+      if(fs_file_read(&file, buf + buf_len, to_read, &read) != FS_ERROR_NONE) {
 	TODO();
       }
       buf_len += read;
@@ -186,7 +186,7 @@ int main(s32 argc, char **argv) {
   audio_block(&audio);
   audio_free(&audio);
 
-  io_file_close(&file);
+  fs_file_close(&file);
 
   return 0;
 }

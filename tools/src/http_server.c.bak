@@ -662,7 +662,7 @@ int main() {
 	  if(s->writes_len == 0) {
 	    ip_server_register_for_writing(&server, index);
 	  }
-
+	  
 	  if(bad_request) {
 	    session_enqueue_message(s, str_fromc("HTTP/1.1 400 Bad Request\r\n"
 						 "Content-Length: 11\r\n"
@@ -678,7 +678,6 @@ int main() {
 	  str params = str_from(s->sb.data, s->start);
 	  str path;
 	  str_chop_by(&params, "?", &path);
-
 	  // str body = str_from(s->sb.data + s->start, s->sb.len - s->start);
 
 	  printf("\t[%llu] %s '%.*s'\n",

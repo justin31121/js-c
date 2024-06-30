@@ -24,6 +24,7 @@
 // SOFTWARE.
 
 #include <stdbool.h>
+#include <stdarg.h>
 
 typedef unsigned char str_u8;
 typedef unsigned int str_u32;
@@ -72,9 +73,12 @@ typedef struct{
 
 #define str_from(d, l) (str) { .data = (d), .len = (l) }
 #define str_fromc(cstr) str_from((str_u8 *) (cstr), str_cstrlen((str_u8 *) (cstr)))
+#define str_fromd(cstr) str_from((str_u8 *) (cstr), (sizeof((cstr)) - 1))
 
 STR_DEF bool str_eq(str a, str b);
 #define str_eqc(s, cstr) str_eq((s), str_fromc(cstr))
+STR_DEF bool str_eq_ignorecase(str a, str b);
+#define str_eq_ignorecasec(s, cstr) str_eq_ignorecase((s), str_fromc(cstr))
 STR_DEF bool str_parse_s64(str s, s64 *n);
 STR_DEF bool str_parse_f64(str s, f64 *n);
 
@@ -102,6 +106,7 @@ STR_DEF void str_builder_append(str_builder *sb, const u8 *data, u64 len);
   str_builder_append((sb), (str_u8 *) (cstr), str_cstrlen((str_u8 *) (cstr)))
 #define str_builder_appends(sb, s) str_builder_append((sb), (s).data, (s).len)
 STR_DEF void str_builder_appends64(str_builder *sb, s64 n);
+STR_DEF void str_builder_appendf(str_builder *sb, char *fmt, ...);
 
 typedef u32 Rune;
 
@@ -150,6 +155,20 @@ STR_DEF bool str_eq(str a, str b) {
     return false;
   }
   return str_memcmp(a.data, b.data, a.len) == 0;
+}
+
+STR_DEF bool str_eq_ignorecase(str a, str b) {
+  if(a.len != b.len) {
+    return false;
+  }
+  for(u64 i=0;i<a.len;i++) {
+    u8 p = a.data[i];
+    u8 q = b.data[i];
+    if('A' <= p && p <= 'Z') p += ' ';
+    if('A' <= q && q <= 'Z') q += ' ';
+    if(p != q) return false;
+  }
+  return true;
 }
 
 STR_DEF bool str_parse_s64(str s, s64 *n) {
@@ -351,6 +370,24 @@ STR_DEF void str_builder_appends64(str_builder *sb, s64 n) {
 
   u64 len = sizeof(buf) - index - 1;
   str_builder_append(sb, (u8 *) &buf[index + 1], len);
+}
+
+STR_DEF void str_builder_appendf(str_builder *sb, char *fmt, ...) {
+  va_list list;
+  va_start(list, fmt);
+  u64 len = (u64) vsnprintf(sb->data + sb->len, sb->cap - sb->len, fmt, list);
+  va_end(list);
+
+  if(sb->len + len <= sb->cap) {
+    
+  } else {
+    str_builder_reserve(sb, sb->len + len);
+    va_start(list, fmt);
+    u64 len = (u64) vsnprintf(sb->data + sb->len, sb->cap - sb->len, fmt, list);
+    va_end(list);
+  }  
+
+  sb->len += len;
 }
 
 STR_DEF Rune rune_decode(const u8 **data, u64 *data_len) {

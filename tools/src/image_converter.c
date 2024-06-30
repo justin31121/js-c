@@ -1,7 +1,7 @@
 #include <stdio.h>
 
-#define IO_IMPLEMENTATION
-#include <core/io.h>
+#define FS_IMPLEMENTATION
+#include <core/fs.h>
 
 #define STR_IMPLEMENTATION
 #include <core/str.h>
@@ -359,7 +359,7 @@ int main(int argc, char **argv) {
   /////////////////////////////////////////////////////
 
   int is_file;
-  if(!io_existsc(input, &is_file)) {
+  if(!fs_existsc(input, &is_file)) {
     fprintf(stderr, "ERROR: '%s' does not exist\n", input);
     return 1;
   }

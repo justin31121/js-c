@@ -9,8 +9,8 @@
 #define MUI_IMPLEMENTATION
 #include <core/mui.h>
 
-#define IO_IMPLEMENTATION
-#include <core/io.h>
+#define FS_IMPLEMENTATION
+#include <core/fs.h>
 
 #define STB_TRUETYPE_IMPLEMENTATION
 #include <thirdparty/stb_truetype.h>
@@ -28,12 +28,12 @@ int load_font(char *font_file_path,
   int NUMBER_OF_GLYPHS = 96;
 
   int result = 1;
-  char *ttf_data = NULL; // io_slurp_file
+  char *ttf_data = NULL; // fs_slurp_file
   u64 ttf_data_len;
   char *bitmap = NULL;   // malloc
   f->glyphs = NULL;      // malloc
   
-  if(io_slurp_filec(font_file_path, (u8 **) &ttf_data, &ttf_data_len) != IO_ERROR_NONE) {
+  if(fs_slurp_filec(font_file_path, (u8 **) &ttf_data, &ttf_data_len) != FS_ERROR_NONE) {
     return_defer(0);
   }
 
