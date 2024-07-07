@@ -43,6 +43,7 @@
 #  define FS_IMPLEMENTATION
 #  define HTTP_IMPLEMENTATION
 #  define B64_IMPLEMENTATION
+#  define VA_IMPLEMENTATION
 #endif // HTTPSERVER_IMPLEMENTATION
 
 #include <core/str.h>
@@ -50,6 +51,7 @@
 #include <core/fs.h>
 #include <core/http.h>
 #include <core/b64.h>
+#include <core/va.h>
 #include <core/types.h>
 
 #define HTTPSERVER_SOCKETS_PER_CLIENT 1
@@ -101,11 +103,10 @@ typedef struct {
   u64 queue_len;
 
   // buffer
-  u8 buf[512];
+  u8 buf[1024];
   u64 len;
 
-  u64 inactive_cycles;
-  
+  u64 inactive_cycles;  
 } Http_Server_Session;
 
 #define httpserver_session_enqueue(s, w)				\
@@ -197,6 +198,9 @@ HTTPSERVER_DEF int httpserver_translate_path(Http_Server_Session *s,
 HTTPSERVER_DEF char *httpserver_guess_content_type(str path);
 
 HTTPSERVER_DEF str httpserver_snprintf(Http_Server_Session *s, char *fmt, ...);
+
+#define httpserver_snprintf2(s, fmt, ...) httpserver_snprintf2_impl((s), str_fromc(fmt), va_catch(__VA_ARGS__))
+HTTPSERVER_DEF str httpserver_snprintf2_impl(Http_Server_Session *s, str fmt, Va *vas, u64 vas_len);
 
 #ifdef HTTPSERVER_IMPLEMENTATION
 
@@ -411,7 +415,8 @@ HTTPSERVER_DEF int httpserver_next(Http_Server *h,
 	r->body = str_from(s->sb.data + s->_body, s->sb.len - s->_body);
 	r->headers = str_from(s->sb.data, s->_body);
 
-	printf("HTTP [%llu/%llu] '"str_fmt"'\n", (index -  off), h->number_of_clients, str_arg(r->path)); fflush(stdout);
+	printf("HTTP [%llu/%llu] '"str_fmt"'\n", (index -  off), h->number_of_clients, str_arg(r->path));
+	s->sb.len = 0;
 
 	return 1;
       }
@@ -535,7 +540,7 @@ HTTPSERVER_DEF int httpserver_next(Http_Server *h,
 	    } else {
 	      chunked->to_write = HTTPSERVER_WRITE_FILE_CHUNKED_LEN;
 	    }
-	      
+
 	    chunked->queue_len =
 	      (u8) snprintf((char *) chunked->queue_data,
 				  HTTPSERVER_WRITE_FILE_QUEUE_DATA_CAP,
@@ -781,12 +786,12 @@ HTTPSERVER_DEF void httpserver_serve_files_get(Http_Server_Session *s,
   }
 
   char *content_type = httpserver_guess_content_type(path);
-  httpserver_enqueue_fixed(s, httpserver_snprintf(s, "HTTP/1.1 200 OK\r\n"
-						  "Content-Length: %llu\r\n"
-						  "Content-Type: %s\r\n"
+  httpserver_enqueue_fixed(s, httpserver_snprintf2(s, "HTTP/1.1 200 OK\r\n"
+						  "Content-Length: %\r\n"
+						  "Content-Type: %\r\n"
 						  "\r\n",
-						  file.size,
-						  content_type));
+						   va_n(file.size),
+						   va_c(content_type)));
   httpserver_enqueue_file(s, file);
 
   /* httpserver_enqueue_fixed(s, httpserver_snprintf(s, "HTTP/1.1 200 OK\r\n" */
@@ -821,12 +826,12 @@ HTTPSERVER_DEF void httpserver_serve_files_head(Http_Server_Session *s,
   }
 
   char *content_type = httpserver_guess_content_type(path);
-  httpserver_enqueue_fixed(s, httpserver_snprintf(s, "HTTP/1.1 200 OK\r\n"
-						  "Content-Length: %llu\r\n"
-						  "Content-Type: %s\r\n"
-						  "\r\n",
-						  file.size,
-						  content_type));
+  httpserver_enqueue_fixed(s, httpserver_snprintf2(s, "HTTP/1.1 200 OK\r\n"
+						   "Content-Length: %\r\n"
+						   "Content-Type: %\r\n"
+						   "\r\n",
+						   va_n(file.size),
+						   va_c(content_type)));
   fs_file_close(&file);
 
 }
@@ -941,13 +946,24 @@ HTTPSERVER_DEF str httpserver_snprintf(Http_Server_Session *s, char *fmt, ...) {
   va_end(list);
   
   if(len + 1 > available) {
-    va_start(list, fmt);    
+    va_start(list, fmt);
     str_builder_reserve(sb, sb->len + len + 1);
     vsnprintf((char *) (sb->data + sb->len), available, fmt, list);    
     va_end(list);
   }
   sb->len += len;
   
+  return str_from(sb->data + sb_len, sb->len - sb_len);
+}
+
+HTTPSERVER_DEF str httpserver_snprintf2_impl(Http_Server_Session *s, str fmt, Va *vas, u64 vas_len) {
+  str_builder *sb = &s->sb;
+  u64 sb_len = sb->len;
+
+  if(!va_appendf_impl(sb, fmt, vas, vas_len)) {
+    TODO();
+  }
+
   return str_from(sb->data + sb_len, sb->len - sb_len);
 }
 

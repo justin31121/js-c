@@ -14,7 +14,7 @@
 
 int main() {
 
-  str dir = str_fromd("./bar/");
+  str dir = str_fromd("./rsc/");
   str username = str_fromd("admin");
   str password = str_fromd("nimda");
 
@@ -24,7 +24,7 @@ int main() {
 
   str_builder_reserve(&sb, sb.len + base64_encode(NULL, 0,
 						  authorization.data, authorization.len));
-  str authorization_b64 = str_from(sb.data + authorization.len,
+  str authorization_b64 = str_from( sb.data + authorization.len,
 				   base64_encode(sb.data + authorization.len, sb.cap - authorization.len,
 						 authorization.data, authorization.len));
   sb.len = 0;
@@ -41,7 +41,7 @@ int main() {
 
   /////////////////////////////////////////////////////////
 
-  u16 http_port = 80;
+  u16 http_port = 8080;
   Http_Server server;
   if(!httpserver_open(&server, CLIENTS)) {
     return 1;
@@ -52,7 +52,7 @@ int main() {
   
   /////////////////////////////////////////////////////////
 
-  u16 ftp_port = 21;
+  u16 ftp_port = 8021;
   Ftp_Server ftp_server;
   if(!ftpserver_open(&ftp_server,
 		     CLIENTS,
@@ -71,7 +71,7 @@ int main() {
   printf("Listening on ftp://localhost:%u\n", ftp_port);
   fflush(stdout);
   
-  while(1) {    
+  while(1) {
 
     u64 index;
     Ip_Mode mode;

@@ -24,7 +24,6 @@
 // SOFTWARE.
 
 #include <stdbool.h>
-#include <stdarg.h>
 
 typedef unsigned char str_u8;
 typedef unsigned int str_u32;
@@ -106,7 +105,16 @@ STR_DEF void str_builder_append(str_builder *sb, const u8 *data, u64 len);
   str_builder_append((sb), (str_u8 *) (cstr), str_cstrlen((str_u8 *) (cstr)))
 #define str_builder_appends(sb, s) str_builder_append((sb), (s).data, (s).len)
 STR_DEF void str_builder_appends64(str_builder *sb, s64 n);
-STR_DEF void str_builder_appendf(str_builder *sb, char *fmt, ...);
+
+#define str_builder_appendf(sb, ...) do{				\
+    u64 available_##__FILE__LINE__ = (sb)->cap - (sb)->len;		\
+    u64 need_##__FILE__##__LINE__ = 1 + snprintf((sb)->data + (sb)->len, available_##__FILE__LINE__ , __VA_ARGS__); \
+    if(available_##__FILE__LINE__ < need_##__FILE__##__LINE__) {	\
+      str_builder_reserve((sb), (sb)->len + need_##__FILE__##__LINE__ ); \
+      snprintf((sb)->data + (sb)->len, (sb)->cap - (sb)->len, __VA_ARGS__); \
+    }									\
+    (sb)->len += need_##__FILE__##__LINE__ - 1;				\
+  }while(0)
 
 typedef u32 Rune;
 
@@ -308,16 +316,9 @@ STR_DEF bool str_chop_by(str *s, char *delim, str *d) {
 }
 
 STR_DEF void str_builder_reserve(str_builder *sb, u64 needed_cap) {
-  u64 cap;
-  if(sb->cap == 0) {
-    cap = STR_BUILDER_DEFAULT_CAP;
-  } else {
-    cap = sb->cap;
-  }
+  u64 cap = (sb->cap == 0) * STR_BUILDER_DEFAULT_CAP + sb->cap;
     
-  while(cap < needed_cap) {
-    cap *= 2;
-  }
+  while(cap < needed_cap) cap <<= 2;
 
   if(cap == sb->cap) {
     // nothing to do here
@@ -372,23 +373,23 @@ STR_DEF void str_builder_appends64(str_builder *sb, s64 n) {
   str_builder_append(sb, (u8 *) &buf[index + 1], len);
 }
 
-STR_DEF void str_builder_appendf(str_builder *sb, char *fmt, ...) {
-  va_list list;
-  va_start(list, fmt);
-  u64 len = (u64) vsnprintf(sb->data + sb->len, sb->cap - sb->len, fmt, list);
-  va_end(list);
+/* STR_DEF void str_builder_appendf(str_builder *sb, char *fmt, ...) { */
+/*   va_list list; */
+/*   va_start(list, fmt); */
+/*   u64 len = (u64) vsnprintf(sb->data + sb->len, sb->cap - sb->len, fmt, list); */
+/*   va_end(list); */
 
-  if(sb->len + len <= sb->cap) {
+/*   if(sb->len + len <= sb->cap) { */
     
-  } else {
-    str_builder_reserve(sb, sb->len + len);
-    va_start(list, fmt);
-    u64 len = (u64) vsnprintf(sb->data + sb->len, sb->cap - sb->len, fmt, list);
-    va_end(list);
-  }  
+/*   } else { */
+/*     str_builder_reserve(sb, sb->len + len); */
+/*     va_start(list, fmt); */
+/*     u64 len = (u64) vsnprintf(sb->data + sb->len, sb->cap - sb->len, fmt, list); */
+/*     va_end(list); */
+/*   } */
 
-  sb->len += len;
-}
+/*   sb->len += len; */
+/* } */
 
 STR_DEF Rune rune_decode(const u8 **data, u64 *data_len) {
   u8 c = (*data)[0];

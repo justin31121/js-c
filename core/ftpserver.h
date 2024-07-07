@@ -375,7 +375,6 @@ FTPSERVER_DEF void ftpserver_next(Ftp_Server *f,
 				  "227 Entering Passive Mode (127,0,0,1,%u,%u)\r\n",
 				  port_to_use / 256,
 				  port_to_use % 256);
-	    
 	      s->message = str_from(s->sb.data, s->sb.len);
 
 	      // TODO: an argument should enable/disable this behaviour
@@ -410,15 +409,16 @@ FTPSERVER_DEF void ftpserver_next(Ftp_Server *f,
 
 #if 1
 		  str_builder_appendf(&s->sb,
-				      "%crw-rw-rw- jschartner %8llu %02d-%02d-%04d %02d:%02d %s\r\n",
-				      c,
-				      entry.size,
-				      entry.time.month,
-				      entry.time.day,
-				      entry.time.year,
-				      entry.time.hour,
-				      entry.time.min,
-				      entry.name);
+			     "%crw-rw-rw- jschartner %8llu %02d-%02d-%04d %02d:%02d %s\r\n",
+			     c,
+			     entry.size,
+			     entry.time.month,
+			     entry.time.day,
+			     entry.time.year,
+			     entry.time.hour,
+			     entry.time.min,
+			     entry.name);
+
 #else
 		  str_builder_appendf(&s->sb,
 				      "%02d.%02d.%02d  %02d:%02d    ",

@@ -634,7 +634,7 @@ IP_DEF Ip_Error ip_sockets_next(Ip_Sockets *s, u64 *index, Ip_Mode *m) {
 
     struct timeval timeout;
     timeout.tv_sec  = 0;
-    timeout.tv_usec = 1;
+    timeout.tv_usec = (s->set_writing->fd_count == 0);
 
     s->ret = select(0,
 		    s->set_reading,
