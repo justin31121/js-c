@@ -542,8 +542,7 @@ FRAME_DEF int frame_peek(Frame *f, Frame_Event *e) {
       if(was_down) e->type = FRAME_EVENT_KEYRELEASE;
       if(is_down) e->type = FRAME_EVENT_KEYPRESS;
     } break;
-    case WM_MOUSEWHEEL:
-    case WM_MOUSEHWHEEL: {
+    case WM_MOUSEWHEEL: {
       e->type = FRAME_EVENT_MOUSEWHEEL;
       e->as.amount = GET_WHEEL_DELTA_WPARAM(e->msg.wParam) / 120;
     } break;

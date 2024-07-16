@@ -108,10 +108,10 @@ STR_DEF void str_builder_appends64(str_builder *sb, s64 n);
 
 #define str_builder_appendf(sb, ...) do{				\
     u64 available_##__FILE__LINE__ = (sb)->cap - (sb)->len;		\
-    u64 need_##__FILE__##__LINE__ = 1 + snprintf((sb)->data + (sb)->len, available_##__FILE__LINE__ , __VA_ARGS__); \
+    u64 need_##__FILE__##__LINE__ = 1 + snprintf((char *) ((sb)->data + (sb)->len), available_##__FILE__LINE__ , __VA_ARGS__); \
     if(available_##__FILE__LINE__ < need_##__FILE__##__LINE__) {	\
       str_builder_reserve((sb), (sb)->len + need_##__FILE__##__LINE__ ); \
-      snprintf((sb)->data + (sb)->len, (sb)->cap - (sb)->len, __VA_ARGS__); \
+      snprintf((char *) ((sb)->data + (sb)->len), (sb)->cap - (sb)->len, __VA_ARGS__); \
     }									\
     (sb)->len += need_##__FILE__##__LINE__ - 1;				\
   }while(0)

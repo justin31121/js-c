@@ -178,6 +178,9 @@ FTPSERVER_DEF void ftpserver_next(Ftp_Server *f,
       if(ip_socket_accept(socket, client_socket, &address) != IP_ERROR_NONE) {
 	TODO();
       }
+      if(ip_sockets_register(_s, off + client_index) != IP_ERROR_NONE) {
+	      TODO();
+      }
     
       Ftp_Server_Session *s = &f->sessions[client_index];
       s->response_kind = FTPSERVER_ACTION_KIND_MESSAGE;
@@ -201,6 +204,10 @@ FTPSERVER_DEF void ftpserver_next(Ftp_Server *f,
       if(ip_socket_accept(socket, client, &address) != IP_ERROR_NONE) {
 	TODO();
       }
+	if(ip_sockets_register(_s, data_index) != IP_ERROR_NONE) {
+	      TODO();
+      }
+
 
       Ftp_Server_Session *s = &f->sessions[session_index];
       if(s->look_for_data_connection && s->message.len == 0) {
@@ -366,7 +373,31 @@ FTPSERVER_DEF void ftpserver_next(Ftp_Server *f,
 
 	    } else if(str_eqc(request, "TYPE A")) {
 	      s->message = str_fromd("500 Type not supported\r\n");
+
+	    } else if(str_index_ofc(request, "EPRT") == 0) {
+		    s->message = str_fromd("500 This not supported\r\n");
+
+	    } else if(str_eqc(request, "EPSV")) {
+	      u16 port_to_use = 60000 - f->number_of_clients + (index - off);
+
+	      s->sb.len = 0;
+	      str_builder_appendf(&s->sb,
+				  "229 Entering Extended Passive Mode (|||%u|)\r\n",
+				  port_to_use);
+	      s->message = str_from(s->sb.data, s->sb.len);
+
+	      // TODO: an argument should enable/disable this behaviour
+	      Ip_Socket *server = &_s->sockets[index + f->number_of_clients];
+	      if(!(server->flags & IP_VALID)) {
+		if(ip_socket_sopen(server, port_to_use, 1) != IP_ERROR_NONE) {
+		  TODO();
+		}
+		if(ip_sockets_register(_s, index + f->number_of_clients) != IP_ERROR_NONE) {
+			TODO();
+		}
+	      }
 	    
+
 	    } else if(str_eqc(request, "PASV")) {
 	      u16 port_to_use = 60000 - f->number_of_clients + (index - off);
 
@@ -382,6 +413,9 @@ FTPSERVER_DEF void ftpserver_next(Ftp_Server *f,
 	      if(!(server->flags & IP_VALID)) {
 		if(ip_socket_sopen(server, port_to_use, 1) != IP_ERROR_NONE) {
 		  TODO();
+		}
+		if(ip_sockets_register(_s, index + f->number_of_clients) != IP_ERROR_NONE) {
+			TODO();
 		}
 	      }
 	    

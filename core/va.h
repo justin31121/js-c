@@ -21,15 +21,15 @@ typedef enum {
 typedef struct {
   Va_Type type;
   union {
-    str str;
-    s64 s64;
+    str s;
+    s64 n;
   } as;
 } Va;
 
-#define va_c(cstr) ((Va) { .type = VA_TYPE_STR, .as.str = str_fromc(cstr) })
-#define va_s(s) ((Va) { .type = VA_TYPE_STR, .as.str = (s) })
-#define va_n(n) ((Va) { .type = VA_TYPE_S64, .as.s64= ((s64) (n)) })
-#define va_n_hex(n) ((Va) { .type = VA_TYPE_S64_HEX, .as.s64= ((s64) (n)) })
+#define va_c(cstr) ((Va) { .type = VA_TYPE_STR, .as.s = str_fromc(cstr) })
+#define va_s(n) ((Va) { .type = VA_TYPE_STR, .as.s = (n) })
+#define va_n(s) ((Va) { .type = VA_TYPE_S64, .as.n = ((s64) (s)) })
+#define va_n_hex(n) ((Va) { .type = VA_TYPE_S64_HEX, .as.n = ((s64) (n)) })
 
 #define va_catch(...) ((Va[]){__VA_ARGS__}), (sizeof((Va[]){__VA_ARGS__})/sizeof(Va)) 
 #define va_appendf(sb, fmt, ...) va_appendf_impl((sb), str_fromc(fmt), va_catch(__VA_ARGS__))
@@ -55,10 +55,10 @@ VA_DEF int va_appendf_impl(str_builder *sb, str fmt, Va *vas, u64 vas_len) {
       Va *va = &vas[vas_index++];
       switch(va->type) {
       case VA_TYPE_STR:
-	str_builder_appends(sb, va->as.str);
+	str_builder_appends(sb, va->as.s);
 	break;
       case VA_TYPE_S64:
-	str_builder_appends64(sb, va->as.s64);
+	str_builder_appends64(sb, va->as.n);
 	break;
       default:
 	TODO();

@@ -2,19 +2,19 @@
 #define EBML_H
 
 // MIT License
-// 
+//
 // Copyright (c) 2024 Justin Schartner
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -125,7 +125,7 @@ typedef enum{
   EBML_ENTRY(0x63A2, BINARY, CodecPrivate)	\
   EBML_ENTRY(0xB5, FLOAT, SamplingFrequency)	\
   EBML_ENTRY(0x6264, UINT, BitDepth)		\
-    
+
 #ifndef EBML_TABLE
 
 #  ifdef EBML_TABLE_ADD_MKV
@@ -141,11 +141,11 @@ typedef enum{
 #endif // EBML_TABLE
 
 typedef enum {
-  
+
 #define EBML_ENTRY(id, type, name) EBML_ID_##name = id ,
   EBML_TABLE
 #undef EBML_ENTRY
-  
+
 }Ebml_Id;
 
 typedef struct{
@@ -192,7 +192,7 @@ EBML_DEF int ebml_next(Ebml *e, u64 *size, Ebml_Elem *elem) {
   if(e->len < i) {
     return 0;
   }
-  
+
   u64 id = *e->data;
   for(u8 j=1;j<i;j++) {
     id <<= 8;
@@ -232,7 +232,7 @@ EBML_DEF int ebml_next(Ebml *e, u64 *size, Ebml_Elem *elem) {
   if(e->len < i) {
     return 0;
   }
-  
+
   *size = *e->data & ~bit;
   for(u8 j=1;j<i;j++) {
     *size <<= 8;
@@ -245,7 +245,7 @@ EBML_DEF int ebml_next(Ebml *e, u64 *size, Ebml_Elem *elem) {
 
   e->data += *size;
   e->len  -= *size;
-  
+
   return 1;
 }
 
@@ -254,9 +254,9 @@ EBML_DEF const char *ebml_id_name(Ebml_Id id) {
   switch(id) {
 #define EBML_ENTRY(ebml_id, ebml_type, ebml_name) case ebml_id : return #ebml_name;
     EBML_TABLE
-#undef EBML_ENTRY    
+#undef EBML_ENTRY
   }
-  
+
   return NULL;
 }
 

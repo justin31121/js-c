@@ -335,8 +335,11 @@ int main() {
   
   Renderer_Font font;
   if(!load_font(
-		//"C:\\Windows\\Fonts\\segoeui.ttf",
+#ifdef _WIN32
+		"C:\\Windows\\Fonts\\consola.ttf",
+#else 
 		"/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+#endif 
 		22.0f,
 		&renderer,
 		&font)) {
