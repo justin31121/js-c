@@ -591,6 +591,11 @@ IP_DEF Ip_Error ip_error_last() {
   }
 }
 
+IP_DEF Ip_Error ip_get_address(Ip ip) {
+  memcpy(ip, "127.0.0.1", 10);
+  return IP_ERROR_NONE;
+}
+
 IP_DEF Ip_Error ip_socket_copen(Ip_Socket *s, char *hostname, u16 port) {
   Ip_Error result = IP_ERROR_NONE;
   s->_socket = -1; 
