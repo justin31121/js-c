@@ -81,7 +81,8 @@ typedef enum {
 IP_DEF Ip_Error ip_error_last();
 IP_DEF u64 ip_strlen(u8 *cstr);
 
-typedef u8 Ip[64];
+#define IP_SIZE 64
+typedef u8 Ip[IP_SIZE];
 
 IP_DEF Ip_Error ip_get_address(Ip ip);
 
@@ -598,7 +599,7 @@ IP_DEF Ip_Error ip_get_address(Ip ip) {
   if(getifaddrs(&ifaddrs) == -1) {
     return ip_error_last();
   }
-
+  
   u8 localhost[] = "127.0.0.1";
 
   struct ifaddrs *ifa;
@@ -611,7 +612,7 @@ IP_DEF Ip_Error ip_get_address(Ip ip) {
     int ret = getnameinfo(ifa->ifa_addr,
 			  sizeof(*ifa->ifa_addr),
 			  ip,
-			  sizeof(ip),
+			  IP_SIZE,
 			  NULL,
 			  0,
 			  NI_NUMERICHOST);
@@ -626,8 +627,8 @@ IP_DEF Ip_Error ip_get_address(Ip ip) {
   }
 
   freeifaddrs(ifaddrs);
-  
   return IP_ERROR_NONE;
+  
 }
 
 IP_DEF Ip_Error ip_socket_copen(Ip_Socket *s, char *hostname, u16 port) {
@@ -873,9 +874,11 @@ IP_DEF Ip_Error ip_sockets_register(Ip_Sockets *s, u64 index) {
 
     struct epoll_event ep_event;
     if(socket->flags & IP_SERVER) {
-      ep_event.events = EPOLLIN | EPOLLET;
+      ep_event.events = EPOLLIN;
+      // ep_event.events = EPOLLIN | EPOLLET;
     } else if(socket->flags & IP_CLIENT) {
-      ep_event.events = EPOLLIN | EPOLLET | EPOLLRDHUP | EPOLLHUP | EPOLLOUT;
+      ep_event.events = EPOLLIN | EPOLLRDHUP | EPOLLHUP | EPOLLOUT;
+      // ep_event.events = EPOLLIN | EPOLLET | EPOLLRDHUP | EPOLLHUP | EPOLLOUT;
     } else {
       TODO();
     }

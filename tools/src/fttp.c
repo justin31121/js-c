@@ -14,6 +14,23 @@
 #define FTPSERVER_SOCKETS_COUNT			\
   ((FTPSERVER_SOCKETS_PER_CLIENT*CLIENTS) + 1)
 
+int main_asdfafd() {
+
+  Fs_Dir dir;
+  printf("%d\n", fs_dir_openc(&dir, "./rsc/./"));
+
+  Fs_Dir_Entry entry;
+  while(fs_dir_next(&dir, &entry) == FS_ERROR_NONE) {
+    printf("\t'%s'\n", entry.name);
+  }
+
+  fs_dir_close(&dir);
+
+  printf("done?\n");
+  
+  return 0;
+}
+
 int main() {
   
   str dir = str_fromd("./rsc/");
