@@ -36,6 +36,7 @@
 #  include <fcntl.h>
 #  include <sys/epoll.h>
 #  include <string.h>
+#  include <ifaddrs.h>
 #endif // _WIN32
 
 #ifndef IP_ALLOC
