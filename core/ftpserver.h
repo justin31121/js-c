@@ -95,7 +95,8 @@ typedef struct {
   // current directory
   u8 path[FS_MAX_PATH];
   u64 path_len;
-  
+
+  Ip ip;
 } Ftp_Server;
 
 FTPSERVER_DEF int ftpserver_open(Ftp_Server *f, u64 number_of_clients,
@@ -133,6 +134,21 @@ FTPSERVER_DEF int ftpserver_open(Ftp_Server *f,
   f->dir_base = dir;
   f->username = username;
   f->password = password;
+
+  Ip ip;
+  if(ip_get_address(ip) != IP_ERROR_NONE) {
+    return 0;
+  }
+
+  u64 i = 0;
+  while(ip[i]) {
+    u8 c = ip[i];
+    if(c == '.') {
+      c = ',';
+    }
+    f->ip[i] = c;
+    i++;
+  }
 
   return 1;
 }
@@ -403,7 +419,8 @@ FTPSERVER_DEF void ftpserver_next(Ftp_Server *f,
 
 	      s->sb.len = 0;
 	      str_builder_appendf(&s->sb,
-				  "227 Entering Passive Mode (127,0,0,1,%u,%u)\r\n",
+				  "227 Entering Passive Mode (%s,%u,%u)\r\n",
+				  f->ip,
 				  port_to_use / 256,
 				  port_to_use % 256);
 	      s->message = str_from(s->sb.data, s->sb.len);
