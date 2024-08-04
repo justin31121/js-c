@@ -89,7 +89,7 @@ typedef struct {
 #ifdef _WIN32
   SOCKET *fd_array;  
 #endif // _WIN32  
- } Ip_Fd_Set;
+} Ip_Fd_Set;
 
 #define IP_VALID    0x01
 #define IP_CLIENT   0x02
@@ -592,7 +592,40 @@ IP_DEF Ip_Error ip_error_last() {
 }
 
 IP_DEF Ip_Error ip_get_address(Ip ip) {
-  memcpy(ip, "127.0.0.1", 10);
+
+  struct ifaddrs *ifaddrs;
+  if(getifaddrs(&ifaddrs) == -1) {
+    return ip_error_last();
+  }
+
+  u8 localhost[] = "127.0.0.1";
+
+  struct ifaddrs *ifa;
+  int found = 0;
+  for(ifa = ifaddrs;!found && ifa!=NULL;ifa=ifa->ifa_next) {
+    if(ifa->ifa_addr == NULL || ifa->ifa_addr->sa_family != AF_INET) {
+      continue;
+    }
+
+    int ret = getnameinfo(ifa->ifa_addr,
+			  sizeof(*ifa->ifa_addr),
+			  ip,
+			  sizeof(ip),
+			  NULL,
+			  0,
+			  NI_NUMERICHOST);
+    if(ret != 0) {
+      continue;
+    }
+    if(strcmp(ip, localhost) == 0) {
+      continue;
+    }
+
+    found = 1;
+  }
+
+  freeifaddrs(ifaddrs);
+  
   return IP_ERROR_NONE;
 }
 
