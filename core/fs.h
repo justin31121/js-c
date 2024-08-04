@@ -112,12 +112,12 @@ FS_DEF Fs_Error fs_file_stdin(Fs_File *f);
 FS_DEF Fs_Error fs_file_ropen(Fs_File *f,
 			      u8 *name,
 			      u64 name_len);
-#define fs_file_ropenc(f, n) fs_file_ropen((f), (u8 *) (n), strlen(n))
+#define fs_file_ropenc(f, n) fs_file_ropen((f), (Fs_u8 *) (n), strlen(n))
 #define fs_file_ropens(f, s) fs_file_ropen((f), (s).data, (s).len)
 FS_DEF Fs_Error fs_file_wopen(Fs_File *f,
 			      u8 *name,
 			      u64 name_len);
-#define fs_file_wopenc(f, n) fs_file_wopen((f), (u8 *) (n), strlen(n))
+#define fs_file_wopenc(f, n) fs_file_wopen((f), (Fs_u8 *) (n), strlen(n))
 #define fs_file_wopens(f, s) fs_file_wopen((f), (s).data, (s).len)
 
 FS_DEF Fs_Error fs_file_read(Fs_File *f,
@@ -166,7 +166,7 @@ typedef struct {
 FS_DEF Fs_Error fs_dir_open(Fs_Dir *d,
 			    u8 *name,
 			    u64 name_len);
-#define fs_dir_openc(d, cstr) fs_dir_open((d), (u8 *) (cstr), strlen(cstr))
+#define fs_dir_openc(d, cstr) fs_dir_open((d), (Fs_u8 *) (cstr), strlen(cstr))
 #define fs_dir_opens(d, s) fs_dir_open((d), (s).data, (s).len)
 FS_DEF Fs_Error fs_dir_next(Fs_Dir *d, Fs_Dir_Entry *e);
 FS_DEF void fs_dir_close(Fs_Dir *d);
@@ -177,34 +177,34 @@ FS_DEF Fs_Error fs_slurp_file(u8 *name,
 			      u64 name_len,
 			      u8 **data,
 			      u64 *data_len);
-#define fs_slurp_filec(cstr, d, ds) fs_slurp_file((u8 *) (cstr), strlen((cstr)), (d), (ds))
+#define fs_slurp_filec(cstr, d, ds) fs_slurp_file((Fs_u8 *) (cstr), strlen((cstr)), (d), (ds))
 #define fs_slurp_files(cstr, d, ds) fs_slurp_file((s).data, (s).len, (d), (ds))
 
 FS_DEF Fs_Error fs_write_file(u8 *name,
 			      u64 name_len,
 			      u8 *data,
 			      u64 data_len);
-#define fs_write_filec(cstr, d, ds) fs_write_file((u8 *) (cstr), strlen((cstr)), (d), (ds))
+#define fs_write_filec(cstr, d, ds) fs_write_file((Fs_u8 *) (cstr), strlen((cstr)), (d), (ds))
 #define fs_write_files(cstr, d, ds) fs_write_file((s).data, (s).len, (d), (ds))
 
 FS_DEF int fs_exists(u8 *name, u64 name_len, int *is_file);
-#define fs_existsc(cstr, f) fs_exists((u8 *) (cstr), strlen(cstr), f)
+#define fs_existsc(cstr, f) fs_exists((Fs_u8 *) (cstr), strlen(cstr), f)
 #define fs_existss(s, f) fs_exists((s).data, (s).len, f)
 
 FS_DEF Fs_Error fs_delete(u8 *name, u64 name_len);
-#define fs_deletec(cstr) fs_delete((u8 *) (cstr), strlen(cstr))
+#define fs_deletec(cstr) fs_delete((Fs_u8 *) (cstr), strlen(cstr))
 #define fs_deletes(s) fs_delete((s).data, (s).len)
 
 FS_DEF Fs_Error fs_move(u8 *src, u64 src_len, u8 *dst, u64 dst_len);
-#define fs_movec(src_cstr, dst_cstr) fs_move((u8 *) (src_cstr), strlen(cstr), (u8 *) (dst_cstr), strlen(dst_cstr))
+#define fs_movec(src_cstr, dst_cstr) fs_move((Fs_u8 *) (src_cstr), strlen(cstr), (u8 *) (dst_cstr), strlen(dst_cstr))
 #define fs_moves(src_s, dst_s) fs_move((src_s).data, (src_s).len, (dst_s).data, (dst_s).len)
 
 FS_DEF Fs_Error fs_mkdir(u8 *name, u64 name_len);
-#define fs_mkdirc(cstr) fs_mkdir((u8 *) (cstr), strlen(cstr))
+#define fs_mkdirc(cstr) fs_mkdir((Fs_u8 *) (cstr), strlen(cstr))
 #define fs_mkdirs(s) fs_mkdir((s).data, (s).len)
 
 FS_DEF Fs_Error fs_rmdir(u8 *name, u64 name_len);
-#define fs_rmdirc(cstr) fs_rmdir((u8 *) (cstr), strlen(cstr))
+#define fs_rmdirc(cstr) fs_rmdir((Fs_u8 *) (cstr), strlen(cstr))
 #define fs_rmdirs(s) fs_rmdir((s).data, (s).len)
 
 
