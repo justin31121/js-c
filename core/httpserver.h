@@ -273,7 +273,7 @@ HTTPSERVER_DEF int httpserver_next(Http_Server *h,
 
     Http_Server_Session *session = &h->sessions[i];
     if(session->inactive_cycles >= 512) {
-      ip_sockets_unregister(_s, i);
+      if(ip_sockets_unregister(_s, i) != IP_ERROR_NONE) TODO();
       ip_socket_close(socket);
       *socket = ip_socket_invalid();
       _s->ret = -1;
@@ -715,6 +715,10 @@ HTTPSERVER_DEF int httpserver_next(Http_Server *h,
 	return 0;
       }
 
+    } break;
+
+    case IP_MODE_DISCONNECT: {
+      *socket = ip_socket_invalid();
     } break;
 
     default:
