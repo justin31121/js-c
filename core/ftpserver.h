@@ -268,8 +268,11 @@ FTPSERVER_DEF void ftpserver_next(Ftp_Server *f,
 	  case IP_ERROR_REPEAT:
 	    keep_reading = 0;
 	    break;
-	  case IP_ERROR_CONNECTION_CLOSED:
-	  case IP_ERROR_CONNECTION_ABORTED:
+	  case IP_ERROR_EOF:
+	    if(ip_sockets_unregister(_s, index) != IP_ERROR_NONE) TODO();
+	    ip_sockets_close(socket);
+	    s->ret = -1;
+
 	    fs_file_close(&s->file);
 	    keep_reading = 0;
 	    *socket = ip_socket_invalid();
@@ -286,6 +289,7 @@ FTPSERVER_DEF void ftpserver_next(Ftp_Server *f,
 	    case FTPSERVER_ACTION_KIND_WRITE_FILE: {
 	      // fs_file_close(file);
 	      keep_reading = 0;
+	      if(ip_sockets_unregister(_s, index) != IP_ERROR_NONE) TODO();
 	      ip_socket_close(socket);
 	      *socket = ip_socket_invalid();
 	    } break;
@@ -333,12 +337,9 @@ FTPSERVER_DEF void ftpserver_next(Ftp_Server *f,
 	    }
 	    s->request_len += read;
 	    break;
-	  case IP_ERROR_CONNECTION_CLOSED:
-	  case IP_ERROR_CONNECTION_ABORTED:
+	  default:
 	    *socket = ip_socket_invalid();
 	    return;
-	  default:
-	    TODO();
 	  }
 	  
 	}
@@ -837,6 +838,7 @@ FTPSERVER_DEF void ftpserver_next(Ftp_Server *f,
 	  if(s->sb.len == 0) {
 	    fs_file_close(file);
 	    keep_writing = 0;
+	    if(ip_sockets_unregister(_s, index) != IP_ERROR_NONE) TODO();
 	    ip_socket_close(socket);
 	    *socket = ip_socket_invalid();
 
@@ -867,6 +869,10 @@ FTPSERVER_DEF void ftpserver_next(Ftp_Server *f,
 	  }
 
 	  
+	} break;
+
+	case IP_MODE_DISCONNECT: {
+	  *socket = ip_socket_invalid();
 	} break;
 	  
 	default: {

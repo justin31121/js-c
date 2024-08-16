@@ -66,6 +66,7 @@ typedef enum {
   IP_ERROR_NONE = 0,
   IP_ERROR_REPEAT,
   IP_ERROR_EMPTY,
+  IP_ERROR_EOF,
   IP_ERROR_WSA_STARTUP_FAILED,
   IP_ERROR_UNKNOWN_HOSTNAME,
   IP_ERROR_ALLOC_FAILED,
@@ -362,7 +363,7 @@ IP_DEF Ip_Error ip_socket_read(Ip_Socket *s, u8 *buf, u64 buf_len, u64 *read) {
   if(ret < 0) {
     return ip_error_last();
   } else if(ret == 0) {
-    return IP_ERROR_CONNECTION_CLOSED;
+    return IP_ERROR_EOF;
   } else {
     *read = (u64) ret;
     return IP_ERROR_NONE;
@@ -739,7 +740,7 @@ IP_DEF Ip_Error ip_socket_read(Ip_Socket *s, u8 *buf, u64 buf_len, u64 *_read) {
   if(ret < 0) {
     return ip_error_last();
   } else if(ret == 0) {
-    return IP_ERROR_CONNECTION_CLOSED;
+    return IP_ERROR_EOF;
   } else {
     *_read = (u64) ret;
     return IP_ERROR_NONE;
@@ -777,7 +778,8 @@ IP_DEF Ip_Error ip_socket_accept(Ip_Socket *s, Ip_Socket *client, Ip_Address *a)
   }
   client->_socket = fd;
   client->flags = IP_VALID | IP_CLIENT;
-  ip_socket_set_blocking(client, s->flags & IP_BLOCKING);
+  client->flags |= s->flags & IP_BLOCKING;
+  // ip_socket_set_blocking(client, s->flags & IP_BLOCKING);
 
   return IP_ERROR_NONE;
 }
@@ -823,17 +825,18 @@ IP_DEF Ip_Error ip_sockets_next(Ip_Sockets *s, u64 *index, Ip_Mode *m) {
   }
 
   struct epoll_event *ep_event = &s->ep_events[s->off];
-  *index = (u64) ep_event->data.ptr;
+#undef u64
+  *index = ep_event->data.u64;
+#define u64 Ip_u64
   if((ep_event->events & EPOLLRDHUP) || 
      (ep_event->events & EPOLLHUP) || 
      (ep_event->events & EPOLLERR)) {
-    s->sockets[*index] = ip_socket_invalid();
-
     ep_event->events &= ~EPOLLRDHUP;
     ep_event->events &= ~EPOLLHUP;
     ep_event->events &= ~EPOLLERR;
     s->off++;
-    goto repeat;
+    *m = IP_MODE_DISCONNECT;
+    return IP_ERROR_NONE;
   }
 
   if(ep_event->events & EPOLLIN) {
@@ -882,7 +885,9 @@ IP_DEF Ip_Error ip_sockets_register(Ip_Sockets *s, u64 index) {
     } else {
       TODO();
     }
-    ep_event.data.ptr = (void *) index;
+#undef u64
+    ep_event.data.u64 = index;
+#define u64 Ip_u64
     if(epoll_ctl(s->epfd, 
 		 EPOLL_CTL_ADD, 
 		 s->sockets[index]._socket, 
