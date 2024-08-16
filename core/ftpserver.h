@@ -270,8 +270,8 @@ FTPSERVER_DEF void ftpserver_next(Ftp_Server *f,
 	    break;
 	  case IP_ERROR_EOF:
 	    if(ip_sockets_unregister(_s, index) != IP_ERROR_NONE) TODO();
-	    ip_sockets_close(socket);
-	    s->ret = -1;
+	    ip_socket_close(socket);
+	    _s->ret = -1;
 
 	    fs_file_close(&s->file);
 	    keep_reading = 0;
@@ -871,9 +871,7 @@ FTPSERVER_DEF void ftpserver_next(Ftp_Server *f,
 	  
 	} break;
 
-	case IP_MODE_DISCONNECT: {
-	  *socket = ip_socket_invalid();
-	} break;
+	
 	  
 	default: {
 	  TODO();
@@ -882,6 +880,11 @@ FTPSERVER_DEF void ftpserver_next(Ftp_Server *f,
       }
 
     } break;
+
+    case IP_MODE_DISCONNECT: {
+      *socket = ip_socket_invalid();
+    } break;
+
     default: {
       TODO();
     } break;
