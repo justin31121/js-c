@@ -178,7 +178,7 @@ FS_DEF Fs_Error fs_slurp_file(u8 *name,
 			      u8 **data,
 			      u64 *data_len);
 #define fs_slurp_filec(cstr, d, ds) fs_slurp_file((Fs_u8 *) (cstr), strlen((cstr)), (d), (ds))
-#define fs_slurp_files(cstr, d, ds) fs_slurp_file((s).data, (s).len, (d), (ds))
+#define fs_slurp_files(s, d, ds) fs_slurp_file((s).data, (s).len, (d), (ds))
 
 FS_DEF Fs_Error fs_write_file(u8 *name,
 			      u64 name_len,

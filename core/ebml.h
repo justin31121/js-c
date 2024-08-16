@@ -273,7 +273,7 @@ EBML_DEF const char *ebml_type_name(Ebml_Type type) {
   return NULL;
 }
 
-EBML_DEF Ebml_Vint ebml_to_vint(u64 n) {
+EBML_DEF Ebml_Vint ebml_to_vint(u64 victim) {
 
   Ebml_Vint v;
 
@@ -281,16 +281,30 @@ EBML_DEF Ebml_Vint ebml_to_vint(u64 n) {
     v.data = 0x80 | victim;
     v.len = 1;
   } else if(victim < 0x4000) {
-    v.data = 0x4000 | victim;
+		u64 r = victim & 0xff;
+		u64 g = (victim & 0xff00) >> 8;
+    v.data = (r << 8) | 0x40 | g;
     v.len = 2;
   } else if(victim < 0x300000) {
-    v.data = 0x300000 | victim;
+		u64 r = victim & 0xff;
+		u64 g = (victim & 0xff00) >> 8;
+		u64 b = (victim & 0xff0000) >> 16;
+    v.data = (r << 16) | (g << 8) | 0x30| b;
     v.len = 3;
   } else if(victim < 0x10000000) {
-    v.data = 0x10000000 | victim;
+		u64 r = victim & 0xff;
+		u64 g = (victim & 0xff00) >> 8;
+		u64 b = (victim & 0xff0000) >> 16;
+		u64 a = (victim & 0xff000000) >> 24;
+    v.data = (r << 24) | (g << 16) | (b << 8) | 0x10 | a;
     v.len = 4;
   } else if(victim < 0x800000000) {
-    v.data = 0x800000000 | victim;
+		u64 r = victim & 0xff;
+		u64 g = (victim & 0xff00) >> 8;
+		u64 b = (victim & 0xff0000) >> 16;
+		u64 a = (victim & 0xff000000) >> 24;
+		u64 f = (victim & 0xff00000000) >> 32;
+    v.data = (r << 32) | (g << 24) | (b << 16) | (a << 8) | 0x80 | f;
     v.len = 5;
   } else {
     v.len = 0;
