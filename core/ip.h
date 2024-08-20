@@ -834,7 +834,6 @@ IP_DEF Ip_Error ip_sockets_next(Ip_Sockets *s, u64 *index, Ip_Mode *m) {
     ep_event->events &= ~EPOLLRDHUP;
     ep_event->events &= ~EPOLLHUP;
     ep_event->events &= ~EPOLLERR;
-    s->off++;
     *m = IP_MODE_DISCONNECT;
     return IP_ERROR_NONE;
   }
