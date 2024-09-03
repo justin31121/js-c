@@ -414,7 +414,7 @@ IP_DEF Ip_Error ip_socket_accept(Ip_Socket *s, Ip_Socket *client, Ip_Address *a)
 IP_DEF void ip_socket_set_blocking(Ip_Socket *s, int blocking) {
 
   unsigned long mode;
-  if(blocking) {
+  if(!blocking) {
     mode = 1;
     s->flags |= IP_BLOCKING;
   } else {
