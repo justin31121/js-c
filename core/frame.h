@@ -663,6 +663,7 @@ FRAME_DEF Frame_Error frame_error_last() {
 FRAME_DEF Frame_Error frame_open(Frame *f, s32 width, s32 height, s32 flags) {
 
   // TODO: handle flags
+  (void) flags;
 
   f->display = XOpenDisplay(NULL);
   if(!f->display) {
@@ -881,14 +882,28 @@ FRAME_DEF int frame_peek(Frame *f, Frame_Event *e) {
   }
 
   Window root;
-  int x, y;
-  unsigned int w, h, bw, depth;
+  s32 x, y;
+  u32 w, h;
+  u32 bw, depth;
   XGetGeometry(f->display,
 	       f->window,
 	       &root,
 	       &x, &y, &w, &h, &bw, &depth);
   f->width = (f32) w;
   f->height = (f32) h;
+
+  s32 _w, _h;
+  XQueryPointer(f->display,
+                f->window,
+                &root,
+                &root,
+                &_w,
+                &_h,
+                &x,
+                &y,
+                &depth);
+  f->mouse_x = (f32) x;
+  f->mouse_y = (f32) (f->height - y);
     
   return 0;
 }
@@ -899,11 +914,29 @@ FRAME_DEF void frame_swap_buffers(Frame *f) {
 
 FRAME_DEF Frame_Error frame_toggle_fullscreen(Frame *f) {
   // TODO
+  (void) f;
   return FRAME_ERROR_NONE;
+}
+
+FRAME_DEF void frame_set_mouse_visible(Frame *f, int visible) {
+  // TODO
+  (void) f;
+  (void) visible;
 }
 
 FRAME_DEF Frame_Error frame_set_title(Frame *f, char *title) {
   // TODO
+  (void) f;
+  (void) title;
+  return FRAME_ERROR_NONE;
+}
+
+FRAME_DEF Frame_Error frame_set_icon(Frame *f, u8 *pixels, u64 pixels_width, u64 pixels_height) {
+  // TODO
+  (void) f;
+  (void) pixels;
+  (void) pixels_width;
+  (void) pixels_height;
   return FRAME_ERROR_NONE;
 }
 
@@ -917,16 +950,20 @@ FRAME_DEF void frame_close(Frame *f) {
 
 FRAME_DEF int frame_dragged_files_open(Frame_Dragged_Files *files, Frame_Event *event) {
   // TODO
+  (void) files;
+  (void) event;
   return 0;
 }
 
 FRAME_DEF int frame_dragged_files_next(Frame_Dragged_Files *files) {
   // TODO
+  (void) files;
   return 0;
 }
 
 FRAME_DEF void frame_dragged_files_close(Frame_Dragged_Files *files) {
-
+  // TODO
+  (void) files;
 }
 
 #endif // _WIN32
