@@ -120,7 +120,7 @@ typedef struct {
 #endif // _WIN32  
 } Ip_Address;
 
-IP_DEF Ip_Error ip_socket_copen(Ip_Socket *s, char *hosntame, u16 port);
+IP_DEF Ip_Error ip_socket_copen(Ip_Socket *s, char *hosntame, u16 port, int blocking);
 IP_DEF Ip_Error ip_socket_sopen(Ip_Socket *s, u16 port, int blocking);
 
 IP_DEF Ip_Error ip_socket_read(Ip_Socket *s, u8 *buf, u64 buf_len, u64 *read);
@@ -248,7 +248,7 @@ IP_DEF Ip_Error ip_get_address(Ip ip) {
 
 static int ip_wsa_inited = 0;
 
-IP_DEF Ip_Error ip_socket_copen(Ip_Socket *s, char *hostname, u16 port) {
+IP_DEF Ip_Error ip_socket_copen(Ip_Socket *s, char *hostname, u16 port, int blocking) {
 
   Ip_Error result = IP_ERROR_NONE;
   struct addrinfo* addr = NULL;
@@ -294,6 +294,8 @@ IP_DEF Ip_Error ip_socket_copen(Ip_Socket *s, char *hostname, u16 port) {
   }
 
   s->flags = IP_VALID | IP_CLIENT;
+
+  ip_socket_set_blocking(s, blocking);
 
  defer:
   if(addr != NULL) freeaddrinfo(addr);
@@ -412,7 +414,7 @@ IP_DEF Ip_Error ip_socket_accept(Ip_Socket *s, Ip_Socket *client, Ip_Address *a)
 IP_DEF void ip_socket_set_blocking(Ip_Socket *s, int blocking) {
 
   unsigned long mode;
-  if(blocking) {
+  if(!blocking) {
     mode = 1;
     s->flags |= IP_BLOCKING;
   } else {
@@ -612,7 +614,7 @@ IP_DEF Ip_Error ip_get_address(Ip ip) {
 
     int ret = getnameinfo(ifa->ifa_addr,
 			  sizeof(*ifa->ifa_addr),
-			  ip,
+			  (char *) ip,
 			  IP_SIZE,
 			  NULL,
 			  0,
@@ -620,7 +622,7 @@ IP_DEF Ip_Error ip_get_address(Ip ip) {
     if(ret != 0) {
       continue;
     }
-    if(strcmp(ip, localhost) == 0) {
+    if(strcmp((char *) ip, (char *) localhost) == 0) {
       continue;
     }
 
@@ -632,7 +634,7 @@ IP_DEF Ip_Error ip_get_address(Ip ip) {
   
 }
 
-IP_DEF Ip_Error ip_socket_copen(Ip_Socket *s, char *hostname, u16 port) {
+IP_DEF Ip_Error ip_socket_copen(Ip_Socket *s, char *hostname, u16 port, int blocking) {
   Ip_Error result = IP_ERROR_NONE;
   s->_socket = -1; 
   s->flags = 0;  
@@ -663,8 +665,10 @@ IP_DEF Ip_Error ip_socket_copen(Ip_Socket *s, char *hostname, u16 port) {
 
   s->flags = IP_VALID | IP_CLIENT; 
 
+  ip_socket_set_blocking(s, blocking);
+
  defer:
-  if(result != IP_ERROR_NONE && s->_socket < 0) {
+  if(result != IP_ERROR_NONE && s->_socket >= 0) {
     close(s->_socket);
   }
   return result; 
@@ -821,7 +825,7 @@ IP_DEF Ip_Error ip_sockets_next(Ip_Sockets *s, u64 *index, Ip_Mode *m) {
 
   if(s->ret == 0) {
     s->ret = -1;
-    goto repeat;
+    return IP_ERROR_REPEAT;
   }
 
   struct epoll_event *ep_event = &s->ep_events[s->off];
@@ -834,7 +838,6 @@ IP_DEF Ip_Error ip_sockets_next(Ip_Sockets *s, u64 *index, Ip_Mode *m) {
     ep_event->events &= ~EPOLLRDHUP;
     ep_event->events &= ~EPOLLHUP;
     ep_event->events &= ~EPOLLERR;
-    s->off++;
     *m = IP_MODE_DISCONNECT;
     return IP_ERROR_NONE;
   }

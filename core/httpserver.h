@@ -264,6 +264,7 @@ HTTPSERVER_DEF int httpserver_next(Http_Server *h,
     TODO();
   }
 
+  /*
   int found = 0;
   for(u64 i=0;i<len - 1;i++) {
     Ip_Socket *socket = &_s->sockets[off + i];
@@ -286,6 +287,10 @@ HTTPSERVER_DEF int httpserver_next(Http_Server *h,
   }
 
   if(found || error == IP_ERROR_REPEAT) {
+    return 0;
+  }
+  */
+  if(error == IP_ERROR_REPEAT) {
     return 0;
   }
 
@@ -719,6 +724,7 @@ HTTPSERVER_DEF int httpserver_next(Http_Server *h,
 
     case IP_MODE_DISCONNECT: {
       *socket = ip_socket_invalid();
+      _s->ret = -1;
     } break;
 
     default:

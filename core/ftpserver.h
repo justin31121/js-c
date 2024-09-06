@@ -883,6 +883,7 @@ FTPSERVER_DEF void ftpserver_next(Ftp_Server *f,
 
     case IP_MODE_DISCONNECT: {
       *socket = ip_socket_invalid();
+      _s->ret = -1;
     } break;
 
     default: {

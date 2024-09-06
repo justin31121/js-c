@@ -7,7 +7,10 @@
 #include <stdlib.h>
 #include <assert.h>
 
-#include <windows.h>
+#ifdef _WIN32
+#  include <windows.h>
+#else
+#endif // _WIN32
 
 typedef unsigned long long int Zh_u64;
 typedef int Zh_s32;
