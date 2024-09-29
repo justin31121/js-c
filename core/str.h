@@ -205,55 +205,42 @@ STR_DEF bool str_parse_s64(str s, s64 *n) {
 }
 
 STR_DEF bool str_parse_f64(str s, f64 *n) {
-  if (s.len == 0) {
-    return false;
-  }
+	u64 i = 0;
 
-  f64 parsedResult = 0.0;
-  s32 sign = 1;
-  s32 decimalFound = 0;
-  s32 decimalPlaces = 0;
-  f64 exponentFactor = 1.0;
+	s32 sign = 1;
+	if(s.len <= i) return false;
+	if(s.data[i] == '-') {
+		sign = -1;
+		i++;
+	}
 
-  u8 *data = (u8 *)s.data;
+	f64 before_dot = 0.0;
+	if(s.len <= i) return false;
+	while(i < s.len && ('0' <= s.data[i] && s.data[i] <= '9')) {
+		before_dot = before_dot * 10.0 + s.data[i] - '0';
+		i++;
+	}
 
-  u64 i = 0;
+	s32 after_dot_len = 0;
+	f64 after_dot = 0.0;
+	if(i < s.len && s.data[i] == '.') {
+		i++;
+		while(i < s.len && ('0' <= s.data[i] && s.data[i] <= '9')) {
+			after_dot = after_dot * 10.0 + s.data[i] - '0';
+			after_dot_len++;
+			i++;
+		} 
+	}
+	for(s32 i=0;i<after_dot_len;i++) {
+		after_dot /= 10;
+	}
 
-  if (i < s.len && (data[i] == '+' || data[i] == '-')) {
-    if (data[i] == '-') {
-      sign = -1;
-    }
-    i++;
-  }
+	if(i != s.len) return false;
+	// *n = before_dot * sign;
+	*n = sign * (before_dot + after_dot);	
 
-  while (i < s.len && ('0' <= data[i] || data[i] <= '9')) {
-    parsedResult = parsedResult * 10.0 + (data[i] - '0');
-    i++;
-  }
+	return true;
 
-  if (i < s.len && data[i] == '.') {
-    i++;
-    while (i < s.len && ('0' <= data[i] || data[i] <= '9')) {
-      parsedResult = parsedResult * 10.0 + (data[i] - '0');
-      decimalPlaces++;
-      i++;
-    }
-    decimalFound = 1;
-  }
-
-  exponentFactor = 1.0;
-  for (int j = 0; j < decimalPlaces; j++) {
-    exponentFactor *= 10.0;
-  }
-  
-  parsedResult *= sign;
-  if (decimalFound) {
-    parsedResult /= exponentFactor;
-  }
-
-  *n = parsedResult;
-
-  return true;
 
 }
 
@@ -318,12 +305,17 @@ STR_DEF bool str_chop_by(str *s, char *delim, str *d) {
 STR_DEF void str_builder_reserve(str_builder *sb, u64 needed_cap) {
   u64 cap = (sb->cap == 0) * STR_BUILDER_DEFAULT_CAP + sb->cap;
     
-  while(cap < needed_cap) cap <<= 2;
+  while(cap < needed_cap) cap <<= 1;
 
   if(cap == sb->cap) {
     // nothing to do here
     
   } else {
+
+    /* u8 *new_data = realloc(sb->data, cap); */
+    /* sb->data = new_data; */
+    /* sb->cap = cap; */
+    
     u8 *new_data = STR_ALLOC(cap);
     str_memcpy(new_data, sb->data, sb->len);
     if(sb->cap != 0) {
