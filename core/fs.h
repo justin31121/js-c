@@ -74,6 +74,8 @@ typedef unsigned long long int Fs_u64;
 #  define FS_DEF static inline
 #endif //FS_DEF
 
+typedef u8 Fs_Path[FS_MAX_PATH];
+
 typedef enum {
   FS_ERROR_NONE = 0,
 
@@ -137,10 +139,10 @@ FS_DEF void fs_file_close(Fs_File *f);
 #define FS_DIR_ENTRY_FROM_SYSTEM 0x2
 
 typedef struct {
-  u8 name[FS_MAX_PATH];
+  Fs_Path name;
   u64 name_len;
 
-  u8 name_abs[FS_MAX_PATH];
+  Fs_Path name_abs;
   u64 name_abs_len;
 
   u32 flags;
@@ -149,7 +151,7 @@ typedef struct {
 } Fs_Dir_Entry;
 
 typedef struct {
-  u8 name[FS_MAX_PATH];
+  Fs_Path name;
   u64 name_len;
 
 #ifdef _WIN32

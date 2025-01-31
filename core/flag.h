@@ -135,8 +135,8 @@ void flag_parse_impl_usage(Flag **fs, u64 fs_len, u64 master_len, char *program)
 	printf("\n\n");
 }
 
-#define flag_parse(c, v, ...) flag_parse_impl((c), (v), ((Flag*[]) { __VA_ARGS__ }), (sizeof((Flag*[]) { __VA_ARGS__ })/sizeof(Flag*)) )
-int flag_parse_impl(s32 argc, char **argv, Flag **fs, u64 fs_len) {
+#define flag_parse_program(p, c, v, ...) flag_parse_program_impl((p), (c), (v), ((Flag*[]) { __VA_ARGS__ }), (sizeof((Flag*[]) { __VA_ARGS__ })/sizeof(Flag*)) )
+int flag_parse_program_impl(char *program, s32 argc, char **argv, Flag **fs, u64 fs_len) {
 
 	u64 master_len = 0;
 	for(u64 i=0;i<fs_len;i++) {
@@ -154,9 +154,8 @@ int flag_parse_impl(s32 argc, char **argv, Flag **fs, u64 fs_len) {
 		}
 	}
 
-	u64 master_index = 0;
-	char *program = argv[0];
-	for(s32 i=1;i<argc;i++) {
+	u64 master_index = 0;	
+	for(s32 i=0;i<argc;i++) {
 		str arg = str_fromc(argv[i]);
 
 		if(str_eq_ignorecase(arg, str_fromd("--help"))) {
@@ -261,7 +260,7 @@ int flag_parse_impl(s32 argc, char **argv, Flag **fs, u64 fs_len) {
 					}
 					break;
 				case FLAG_TYPE_F64:
-					if(!_str_parse_f64(value, &f->as.f64)) {
+					if(!str_parse_f64(value, &f->as.f64)) {
 						fprintf(stderr, "ERROR: Cannot parse '"str_fmt"'. Expected f64\n", str_arg(value));
 						flag_parse_impl_usage(fs, fs_len, master_len, program);
 						return 0;
@@ -315,6 +314,13 @@ int flag_parse_impl(s32 argc, char **argv, Flag **fs, u64 fs_len) {
 	}
 
 	return 1;
+}
+
+#define flag_parse(c, v, ...) flag_parse_impl((c), (v), ((Flag*[]) { __VA_ARGS__ }), (sizeof((Flag*[]) { __VA_ARGS__ })/sizeof(Flag*)) )
+int flag_parse_impl(s32 argc, char **argv, Flag **fs, u64 fs_len) {
+    argc += 1;
+    argv -= 1;
+    return flag_parse_program_impl(argv[0], argc, argv, fs, fs_len);
 }
 
 

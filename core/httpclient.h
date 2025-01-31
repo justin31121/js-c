@@ -156,19 +156,20 @@ HTTPCLIENT_DEF int httpclient_request(str url,
   
   u64 sb_len = sb->len;  
   str_builder_appends(sb, hostname);
-  str_builder_append(sb, "\0", 1);
-  char *_hostname = sb->data + sb_len;
+  str_builder_append(sb, (u8 *) "\0", 1);
+  u8 *_hostname = sb->data + sb_len;
   sb->len = sb_len;
   
   Ip_Socket socket;
-  if(ip_socket_copen(&socket, _hostname, port) != IP_ERROR_NONE) {
+  if(ip_socket_copen(&socket, (char *) _hostname, port, 1) != IP_ERROR_NONE) {
     return 0;
   }
 
-  str_builder_appendf(sb, "%s / HTTP/1.1\r\n"
+  str_builder_appendf(sb, "%s "str_fmt" HTTP/1.1\r\n"
 		      "Host: "str_fmt"\r\n"
-		      "\r\n",
+		      "\r\n",		      
 		      HTTP_METHOD_NAME[method],
+		      str_arg(route),
 		      str_arg(hostname));
   str request_string = str_from(sb->data + sb_len, sb->len - sb_len);
   u64 written;
@@ -199,12 +200,12 @@ HTTPCLIENT_DEF int httpclient_request(str url,
       case HTTP_EVENT_ERROR:
 	TODO();
       case HTTP_EVENT_KEY:
-        str_builder_append(sb, HTTPCLIENT_HEADERS_PAIR_DELIM, (u64) (sb->len == _header));
+        str_builder_append(sb, (u8 *) HTTPCLIENT_HEADERS_PAIR_DELIM, (u64) (sb->len == _header));
 	str_builder_append(sb, http.body_data, http.body_len);
 	_value = sb->len;
 	break;
       case HTTP_EVENT_VALUE:
-	str_builder_append(sb, HTTPCLIENT_HEADERS_KEY_VALUE_DELIM, (u64) (sb->len == _value));
+	str_builder_append(sb, (u8 *) HTTPCLIENT_HEADERS_KEY_VALUE_DELIM, (u64) (sb->len == _value));
 	str_builder_append(sb, http.body_data, http.body_len);
 	break;
       case HTTP_EVENT_BODY:

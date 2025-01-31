@@ -219,183 +219,192 @@ MP4_DEF int mp4_decoder_open(Mp4_Decoder *m,
 
   u8 buf[1024];
 
-  if(!mp4_decoder_query(m,
-			MP4_TYPE_moov,
-			MP4_TYPE_trak)) {
-    return 0;
+  if(!mp4_decoder_query(m, MP4_TYPE_moov)) {
+	return 0;
   }
-  u64 trak = m->off;
+	
+  while(1) {
+	  if(!mp4_decoder_query(m, MP4_TYPE_trak)) {
+		break;
+	  }
+	  u64 trak = m->off;
 
-  {
-    if(!mp4_decoder_query(m, MP4_TYPE_tkhd)) {
-      return 0;
-    }
+	  {
+		  if(!mp4_decoder_query(m, MP4_TYPE_tkhd)) {
+			  return 0;
+		  }
 
-    u64 tkhd_read = 0
-      + 4 /* TrackHeaderBox.(version + flags) */
-      + 8 /* TrackHeaderBox.creation_time */
-      + 8 /* TrackHeaderBox.modification_time */
-      + 4 /* TrackHeaderBox.track_id */
-      ;
-    assert(tkhd_read < sizeof(buf));
+		  u64 tkhd_read = 0
+			  + 4 /* TrackHeaderBox.(version + flags) */
+			  + 8 /* TrackHeaderBox.creation_time */
+			  + 8 /* TrackHeaderBox.modification_time */
+			  + 4 /* TrackHeaderBox.track_id */
+			  ;
+		  assert(tkhd_read < sizeof(buf));
 
-    if(!m->read(m->opaque, buf, tkhd_read)) {
-      return 0;
-    }
-    m->off = tkhd_read;
+		  if(!m->read(m->opaque, buf, tkhd_read)) {
+			  return 0;
+		  }
+		  m->off = tkhd_read;
 
-    if(buf[0] == 1) {
-      m->track_id = mp4_swap_u32(*(u32*) (buf + 20));
-    } else {
-      m->track_id = mp4_swap_u32(*(u32*) (buf + 16));
-    }    
-  
-    if(!m->seek(m->opaque, trak)) {
-      return 0;
-    }
-    m->off = trak;
+		  if(buf[0] == 1) {
+			  m->track_id = mp4_swap_u32(*(u32*) (buf + 20));
+		  } else {
+			  m->track_id = mp4_swap_u32(*(u32*) (buf + 16));
+		  }    
+
+		  if(!m->seek(m->opaque, trak)) {
+			  return 0;
+		  }
+		  m->off = trak;
+	  }
+
+	  if(!mp4_decoder_query(m, MP4_TYPE_mdia)) {
+		  return 0;
+	  }
+	  u64 mdia = m->off;
+
+	  if(!mp4_decoder_query(m, MP4_TYPE_hdlr)) {
+		  return 0;
+	  }
+
+	  if(!m->read(m->opaque, buf, 12)) {
+		  return 0;
+	  }
+	  m->off += 12;
+
+	  if(memcmp(buf + 8, "soun", 4) == 0) {
+		  m->type = MP4_MEDIA_TYPE_AUDIO;
+	  } else if(memcmp(buf + 8, "vide", 4) == 0) {
+		  m->type = MP4_MEDIA_TYPE_VIDEO;
+	  } else {
+		  return 0;
+	  }
+
+	  if(!m->seek(m->opaque, mdia)) {
+		  return 0;
+	  }
+	  m->off = mdia;
+
+	  if(!mp4_decoder_query(m,
+				  MP4_TYPE_minf,
+				  MP4_TYPE_stbl,
+				  MP4_TYPE_stsd)) {
+		  return 0;
+	  }
+
+	  if(m->type == MP4_MEDIA_TYPE_AUDIO) {
+		  const u64 stsd_read = 0
+			  + 4 /* SampleDescriptionBox.(version + flags) */
+			  + 4 /* SampleDescriptionBox.entry_count */
+			  + 4 /* SampleEntry.size */
+			  + 4 /* SampleEntry.type */
+			  + 6 /* SampleEntry.reserved */
+			  + 2 /* SampleEntry.data_reference_index */
+			  + 8 /* AudioSampleEntry.reserved */
+			  + 2 /* AudioSampleEntry.channelcount */
+			  + 2 /* AudioSampleEntry.samplesize */
+			  + 2 /* AudioSampleEntry.pre_defined */
+			  + 2 /* AudioSampleEntry.reserved */
+			  + 4 /* AudioSampleEntry.samplerate */
+			  ;
+		  assert(stsd_read < sizeof(buf));
+
+		  if(!m->read(m->opaque, buf, stsd_read)) {
+			  return 0;
+		  }
+		  m->off += stsd_read;
+		  u32 entry_count = mp4_swap_u32(*(u32 *) (buf + 4));
+		  if(entry_count != 1) {
+			  return 0; // TODO
+		  }
+
+		  if(!mp4_codec_parse(buf + 12, &m->codec)) {
+			  return 0;
+		  }
+
+		  m->as.audio = (Mp4_Audio) {
+			  .channels = mp4_swap_u16(*(u16 *) (buf + 32)),
+				  .sample_size = mp4_swap_u16(*(u16 *) (buf + 34)),
+				  .sample_rate = mp4_swap_u32(*(u32 *) (buf + 38)),
+		  };
+
+	  } else {
+		  if(!m->seek(m->opaque, trak)) {
+			  return 0;	
+		  }
+		  m->off = trak;
+		  continue;
+	  }
+
+	  if(!m->seek(m->opaque, 0)) {
+		  return 0;
+	  }
+	  m->off = 0;
+
+	  return 1;	
   }
-  
-  if(!mp4_decoder_query(m, MP4_TYPE_mdia)) {
-    return 0;
-  }
-  u64 mdia = m->off;
 
-  if(!mp4_decoder_query(m, MP4_TYPE_hdlr)) {
-    return 0;
-  }
-  
-  if(!m->read(m->opaque, buf, 12)) {
-    return 0;
-  }
-  m->off += 12;
-
-  if(memcmp(buf + 8, "soun", 4) == 0) {
-    m->type = MP4_MEDIA_TYPE_AUDIO;
-  } else if(memcmp(buf + 8, "vide", 4) == 0) {
-    m->type = MP4_MEDIA_TYPE_VIDEO;
-  } else {
-    return 0;
-  }
-
-  if(!m->seek(m->opaque, mdia)) {
-    return 0;
-  }
-  m->off = mdia;
-
-  if(!mp4_decoder_query(m,
-			MP4_TYPE_minf,
-			MP4_TYPE_stbl,
-			MP4_TYPE_stsd)) {
-    return 0;
-  }
-
-  if(m->type == MP4_MEDIA_TYPE_AUDIO) {
-    const u64 stsd_read = 0
-      + 4 /* SampleDescriptionBox.(version + flags) */
-      + 4 /* SampleDescriptionBox.entry_count */
-      + 4 /* SampleEntry.size */
-      + 4 /* SampleEntry.type */
-      + 6 /* SampleEntry.reserved */
-      + 2 /* SampleEntry.data_reference_index */
-      + 8 /* AudioSampleEntry.reserved */
-      + 2 /* AudioSampleEntry.channelcount */
-      + 2 /* AudioSampleEntry.samplesize */
-      + 2 /* AudioSampleEntry.pre_defined */
-      + 2 /* AudioSampleEntry.reserved */
-      + 4 /* AudioSampleEntry.samplerate */
-      ;
-    assert(stsd_read < sizeof(buf));
-
-    if(!m->read(m->opaque, buf, stsd_read)) {
-      return 0;
-    }
-    m->off += stsd_read;
-    u32 entry_count = mp4_swap_u32(*(u32 *) (buf + 4));
-    if(entry_count != 1) {
-      return 0; // TODO
-    }
-
-    if(!mp4_codec_parse(buf + 12, &m->codec)) {
-      return 0;
-    }
-
-    m->as.audio = (Mp4_Audio) {
-      .channels = mp4_swap_u16(*(u16 *) (buf + 32)),
-      .sample_size = mp4_swap_u16(*(u16 *) (buf + 34)),
-      .sample_rate = mp4_swap_u32(*(u32 *) (buf + 38)),
-    };
-    
-  } else {
-    return 1; //TODO
-    
-  }
-  
-  if(!m->seek(m->opaque, 0)) {
-    return 0;
-  }
-  m->off = 0;
-  
-  return 1;
+  return 0;
 }
 
 MP4_DEF int mp4_decoder_read(Mp4_Decoder *m, u8 *buf, u64 len, u64 *read) {
 
-  if(m->mdat_len == 0) {
-    u64 off = m->off;
+	if(m->mdat_len == 0) {
+		u64 off = m->off;
 
-    if(!mp4_decoder_query(m,
-			  MP4_TYPE_moof,
-			  MP4_TYPE_traf,
-			  MP4_TYPE_tfhd)) {
-      return 0;
-    }
+		if(!mp4_decoder_query(m,
+					MP4_TYPE_moof,
+					MP4_TYPE_traf,
+					MP4_TYPE_tfhd)) {
+			return 0;
+		}
 
-    u8 buf[8];
-    if(!m->read(m->opaque, buf, 8)) {
-      return 0;
-    }
-    m->off += 8;
-    // TODO: verifiy track_id
+		u8 buf[8];
+		if(!m->read(m->opaque, buf, 8)) {
+			return 0;
+		}
+		m->off += 8;
+		// TODO: verifiy track_id
 
-    if(!m->seek(m->opaque, off)) {
-      return 0;
-    }
-    m->off = off;
-    
-    if(!mp4_decoder_query(m, MP4_TYPE_mdat)) {
-      return 0;
-    }
-    m->mdat_len = m->prev_size - 8;    
-    m->prev_off = m->off + m->mdat_len;
-    
-  }
+		if(!m->seek(m->opaque, off)) {
+			return 0;
+		}
+		m->off = off;
 
-  if(m->mdat_len == 0) {
-    return 0;
-  } else {
-    u64 to_read = len;
-    if(to_read > m->mdat_len) {
-      to_read = m->mdat_len;
-    }
+		if(!mp4_decoder_query(m, MP4_TYPE_mdat)) {
+			return 0;
+		}
+		m->mdat_len = m->prev_size - 8;    
+		m->prev_off = m->off + m->mdat_len;
 
-    if(!m->read(m->opaque, buf, to_read)) {
-      return 0;
-    }
-    *read = to_read;
-    m->mdat_len -= to_read;
+	}
 
-    if(m->mdat_len == 0) {
+	if(m->mdat_len == 0) {
+		return 0;
+	} else {
+		u64 to_read = len;
+		if(to_read > m->mdat_len) {
+			to_read = m->mdat_len;
+		}
 
-      if(!m->seek(m->opaque, m->prev_off)) {
-	return 0;
-      }
-      m->off = m->prev_off;
-    }
+		if(!m->read(m->opaque, buf, to_read)) {
+			return 0;
+		}
+		*read = to_read;
+		m->mdat_len -= to_read;
 
-    return 1;
-  }
-  
+		if(m->mdat_len == 0) {
+
+			if(!m->seek(m->opaque, m->prev_off)) {
+				return 0;
+			}
+			m->off = m->prev_off;
+		}
+
+		return 1;
+	}
+
 }
 
 #endif // MP4_IMPLEMENTATION
