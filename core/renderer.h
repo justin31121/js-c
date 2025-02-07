@@ -186,11 +186,15 @@ static char *renderer_fragment_shader_source =
 
 			     float f = 1.0;
 			     float p = texture2D(tex, actual_uv).r * f;
+			     float d = -1.0 * color.a * p;
+			     
+			     float aaf = fwidth(d);
+			     float alpha = smoothstep(0.5 - aaf, 0.5 + aaf, d);
 
 			     gl_FragColor = vec4(color.r,
 						 color.g,
 						 color.b,
-						 -1.0 * color.a * p);
+						 d);
 			   } else {
 			     gl_FragColor = color;
 			   }
@@ -264,7 +268,7 @@ RENDERER_DEF int renderer_open(Renderer *r) {
 			GL_FLOAT,
 			GL_FALSE,
 			sizeof(Renderer_Vertex),
-			(GLvoid *) offsetof(Renderer_Vertex, uv));
+ (GLvoid *) offsetof(Renderer_Vertex, uv));
 	
   if(!renderer_shader_compile(&r->vertex_shader, GL_VERTEX_SHADER, renderer_vertex_shader_source)) {
     return 0;
@@ -282,13 +286,14 @@ RENDERER_DEF int renderer_open(Renderer *r) {
   r->verticies_len = 0;
   r->texture_count  = 0;
   r->texture_active  = -1;
+
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   
   return 1;
 }
 
 RENDERER_DEF void renderer_begin(Renderer *r, f32 width, f32 height) {
-  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-  glEnable(GL_BLEND);
 
   glViewport(0, 0, (GLsizei) width, (GLsizei) height);
   glClear(GL_COLOR_BUFFER_BIT);
@@ -360,8 +365,6 @@ RENDERER_DEF int renderer_texture_prepare(Renderer_Texture *t,
   glGenTextures(1, &texture);
   glBindTexture(GL_TEXTURE_2D, texture);
 
-  
-
   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
   if(is_grey) {
@@ -370,6 +373,7 @@ RENDERER_DEF int renderer_texture_prepare(Renderer_Texture *t,
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
     
     glTexImage2D(GL_TEXTURE_2D,
 		 0,

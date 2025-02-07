@@ -163,13 +163,19 @@ typedef enum {
   FRAME_EVENT_FILEDROP,
 } Frame_Event_Type;
 
+#define FRAME_PLUS VK_OEM_PLUS
+#define FRAME_MINUS VK_OEM_MINUS
 #define FRAME_BACKSPACE 8
+#define FRAME_TAB VK_TAB
 #define FRAME_ESCAPE 27
 #define FRAME_SPACE 32
 #define FRAME_ARROW_LEFT 37
 #define FRAME_ARROW_UP 38
 #define FRAME_ARROW_RIGHT 39
 #define FRAME_ARROW_DOWN 40
+#define FRAME_SHIFT VK_SHIFT
+#define FRAME_ALT VK_MENU
+#define FRAME_CTRL VK_CONTROL
 
 typedef struct {
 #ifdef _WIN32
