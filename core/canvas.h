@@ -49,6 +49,7 @@ typedef struct{
 CANVAS_DEF Canvas canvas_subcanvas(Canvas src, u64 x_off, u64 y_off, u64 width, u64 height);
 
 CANVAS_DEF void canvas_fill(Canvas src, u32 color);
+CANVAS_DEF void canvas_circle(Canvas src, u64 cx, u64 cy, u64 r, u32 color);
 CANVAS_DEF void canvas_interpolate(Canvas src, Canvas dst);
 CANVAS_DEF void canvas_interpolate_bilinear(Canvas src, Canvas dst);
 
@@ -88,6 +89,42 @@ CANVAS_DEF void canvas_fill(Canvas src, u32 color) {
       src.pixels[y * src.stride + x] = color;
    }
   }				  
+}
+
+CANVAS_DEF void canvas_circle(Canvas src, u64 cx, u64 cy, u64 r, u32 color) {
+	u64 r_squared = r*r;
+
+	for(u64 dx=0;dx<r;dx++)  {
+		for(u64 dy=0;dy<r;dy++) {
+			if(dx*dx + dy*dy > r_squared) {
+				continue;
+			}
+
+			if(cx + dx < src.width) {
+				u64 x = cx + dx;
+				if(cy + dy < src.height) {
+					u64 y = cy + dy;
+					src.pixels[y*src.width + x] = color;
+				}
+				if(dy < cy) {
+					u64 y = cy - dy;
+					src.pixels[y*src.width + x] = color;
+				}
+			}
+			if(dx < cx) {
+				u64 x = cx - dx;
+				if(cy + dy < src.height) {
+					u64 y = cy + dy;
+					src.pixels[y*src.width + x] = color;
+				}
+				if(dy < cy) {
+					u64 y = cy - dy;
+					src.pixels[y*src.width + x] = color;
+				}
+			}
+
+		}
+	}
 }
 
 CANVAS_DEF void canvas_interpolate(Canvas src, Canvas dst) {

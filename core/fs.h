@@ -2,19 +2,19 @@
 #define FS_H
 
 // MIT License
-// 
+//
 // Copyright (c) 2024 Justin Schartner
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -54,7 +54,7 @@
 #  include <dirent.h>
 
 #  define FS_SEP "\n"
-#  define FS_DELIM '/' 
+#  define FS_DELIM '/'
 #  define FS_MAX_PATH PATH_MAX
 
 #endif // _WIN32
@@ -73,6 +73,8 @@ typedef unsigned long long int Fs_u64;
 #ifndef FS_DEF
 #  define FS_DEF static inline
 #endif //FS_DEF
+
+typedef u8 Fs_Path[FS_MAX_PATH];
 
 typedef enum {
   FS_ERROR_NONE = 0,
@@ -101,7 +103,7 @@ FS_DEF void fs_time_get(Fs_Time *t);
 typedef struct {
 #ifdef _WIN32
   HANDLE handle;
-#else  
+#else
   s32 fd;
 #endif // _WIN32
   u64 size;
@@ -137,10 +139,10 @@ FS_DEF void fs_file_close(Fs_File *f);
 #define FS_DIR_ENTRY_FROM_SYSTEM 0x2
 
 typedef struct {
-  u8 name[FS_MAX_PATH];
+  Fs_Path name;
   u64 name_len;
 
-  u8 name_abs[FS_MAX_PATH];
+  Fs_Path name_abs;
   u64 name_abs_len;
 
   u32 flags;
@@ -149,9 +151,9 @@ typedef struct {
 } Fs_Dir_Entry;
 
 typedef struct {
-  u8 name[FS_MAX_PATH];
+  Fs_Path name;
   u64 name_len;
-  
+
 #ifdef _WIN32
   HANDLE handle;
   WIN32_FIND_DATAW find_data;
@@ -159,7 +161,7 @@ typedef struct {
   DIR *handle;
   struct dirent *ent;
   struct stat stat;
-#endif // _WIN32   
+#endif // _WIN32
   Fs_Error error;
 } Fs_Dir;
 
@@ -185,7 +187,7 @@ FS_DEF Fs_Error fs_write_file(u8 *name,
 			      u8 *data,
 			      u64 data_len);
 #define fs_write_filec(cstr, d, ds) fs_write_file((Fs_u8 *) (cstr), strlen((cstr)), (d), (ds))
-#define fs_write_files(cstr, d, ds) fs_write_file((s).data, (s).len, (d), (ds))
+#define fs_write_files(s, d, ds) fs_write_file((s).data, (s).len, (d), (ds))
 
 FS_DEF int fs_exists(u8 *name, u64 name_len, int *is_file);
 #define fs_existsc(cstr, f) fs_exists((Fs_u8 *) (cstr), strlen(cstr), f)
@@ -316,13 +318,13 @@ FS_DEF Fs_Error fs_file_read(Fs_File *f,
 
   if(!ReadFile(f->handle, buf, (DWORD) len, &bytes_read, NULL)) {
     return fs_error_last();
-  } else {    
+  } else {
     *read = (u64) bytes_read;
-    f->pos += *read;    
+    f->pos += *read;
     if(bytes_read == 0) {
       *read = 0;
       return FS_ERROR_EOF;
-    } else {      
+    } else {
       return FS_ERROR_NONE;
     }
   }
@@ -427,7 +429,7 @@ FS_DEF Fs_Error fs_dir_next(Fs_Dir *d, Fs_Dir_Entry *e) {
   }
 
   if(FindNextFileW(d->handle,
-		   &d->find_data)) {    
+		   &d->find_data)) {
     d->error = FS_ERROR_NONE;
     return d->error;
 
@@ -453,8 +455,8 @@ FS_DEF int fs_exists(u8 *name, u64 name_len, int *is_file) {
   int n = MultiByteToWideChar(CP_UTF8, 0, (char *) name, (s32) name_len, filepath, FS_MAX_PATH);
   filepath[n] = 0;
 
-  DWORD attribs = GetFileAttributesW(filepath);  
-  if(is_file) *is_file = !(attribs & FILE_ATTRIBUTE_DIRECTORY);  
+  DWORD attribs = GetFileAttributesW(filepath);
+  if(is_file) *is_file = !(attribs & FILE_ATTRIBUTE_DIRECTORY);
   return attribs != INVALID_FILE_ATTRIBUTES;
 }
 
@@ -508,7 +510,7 @@ FS_DEF Fs_Error fs_rmdir(u8 *name, u64 name_len) {
     return FS_ERROR_NONE;
   } else {
     return fs_error_last();
-  }  
+  }
 }
 
 
@@ -591,7 +593,7 @@ FS_DEF Fs_Error fs_file_wopen(Fs_File *f,
   memcpy(buf, name, name_len);
   buf[name_len] = 0;
 
-  f->fd = open((char *) buf, O_CREAT | O_WRONLY);
+  f->fd = open((char *) buf, O_CREAT | O_WRONLY, S_IRUSR | S_IWUSR | S_IROTH | S_IRGRP);
   if(f->fd < 0) {
     return fs_error_last();
   }
@@ -605,7 +607,7 @@ FS_DEF Fs_Error fs_file_write(Fs_File *f,
 			      u64 *written) {
   ssize_t ret = write(f->fd, buf, len);
   if(ret < 0) {
-    return fs_error_last();	
+    return fs_error_last();
   } else {
     *written = (u64) ret;
     return FS_ERROR_NONE;
@@ -628,7 +630,7 @@ FS_DEF int fs_exists(u8 *name, u64 name_len, int *is_file) {
 
   u8 buf[FS_MAX_PATH];
   memcpy(buf, name, name_len);
-  buf[name_len] = 0;  
+  buf[name_len] = 0;
 
   int result = access((char *) buf, F_OK);
   if(result < 0) {
@@ -650,7 +652,7 @@ FS_DEF Fs_Error fs_delete(u8 *name, u64 name_len) {
   memcpy(buf, name, name_len);
   buf[name_len] = 0;
 
-  if(remove(buf) == 0) {
+  if(remove((char *) buf) == 0) {
     return FS_ERROR_NONE;
   } else {
     return fs_error_last();
@@ -666,7 +668,7 @@ FS_DEF Fs_Error fs_move(u8 *src, u64 src_len, u8 *dst, u64 dst_len) {
   memcpy(dst_filepath, dst, dst_len);
   dst_filepath[dst_len] = 0;
 
-  if(rename(src, dst) == 0) {
+  if(rename((char *) src, (char *) dst) == 0) {
     return FS_ERROR_NONE;
   } else {
     return fs_error_last();
@@ -677,8 +679,8 @@ FS_DEF Fs_Error fs_mkdir(u8 *name, u64 name_len) {
   u8 buf[FS_MAX_PATH];
   memcpy(buf, name, name_len);
   buf[name_len] = 0;
-  
-  if(mkdir(buf, 777) == 0) {
+
+  if(mkdir((char *) buf, 777) == 0) {
     return FS_ERROR_NONE;
   } else {
     return fs_error_last();
@@ -690,7 +692,7 @@ FS_DEF Fs_Error fs_rmdir(u8 *name, u64 name_len) {
   memcpy(buf, name, name_len);
   buf[name_len] = 0;
 
-  if(rmdir(buf) == 0) {
+  if(rmdir((char *) buf) == 0) {
     return FS_ERROR_NONE;
   } else {
     return fs_error_last();
@@ -708,7 +710,7 @@ FS_DEF Fs_Error fs_dir_open(Fs_Dir *d,
   memcpy(buf, name, name_len);
   buf[name_len] = 0;
 
-  d->handle = opendir(buf);
+  d->handle = opendir((char *) buf);
   if(!d->handle) {
     return fs_error_last();
   }
@@ -741,10 +743,10 @@ FS_DEF Fs_Error fs_dir_next(Fs_Dir *d, Fs_Dir_Entry *e) {
   e->name_abs_len = d->name_len + e->name_len;
   e->name_abs[e->name_abs_len] = 0;
 
-  if(stat(e->name_abs, &d->stat) < 0) {
+  if(stat((char *) e->name_abs, &d->stat) < 0) {
     e->time = (Fs_Time) {0};
     e->size = 0;
-  } else {    
+  } else {
     struct tm *tm = localtime(&d->stat.st_mtim.tv_sec);
     e->time.day = tm->tm_mday;
     e->time.month = tm->tm_mon;
@@ -754,13 +756,13 @@ FS_DEF Fs_Error fs_dir_next(Fs_Dir *d, Fs_Dir_Entry *e) {
     e->time.sec = tm->tm_sec;
 
     e->size = d->stat.st_size;
-  }  
-  
+  }
+
   e->flags = 0;
   if((d->ent->d_type == DT_DIR) != 0) {
-    e->flags |= FS_DIR_ENTRY_IS_DIR;  
+    e->flags |= FS_DIR_ENTRY_IS_DIR;
   }
-  
+
   if((e->name_len == 1 && e->name[0] == '.') ||
      (e->name_len == 2 && e->name[0] == '.' && e->name[1] == '.')) {
     e->flags |= FS_DIR_ENTRY_FROM_SYSTEM;
@@ -793,9 +795,9 @@ FS_DEF Fs_Error fs_slurp_file(u8 *name,
   if(!data) {
     fs_file_close(&file);
     return FS_ERROR_ALLOC_FAILED;
-  }  
+  }
 
-  u64 data_len = 0;  
+  u64 data_len = 0;
   while(data_len < file.size) {
 
     u64 read;
@@ -858,4 +860,3 @@ FS_DEF Fs_Error fs_write_file(u8 *name,
 #undef u64
 
 #endif //FS_H
-

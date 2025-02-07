@@ -209,6 +209,8 @@ IP_DEF Ip_Error ip_get_address(Ip ip) {
   if(!adapter_info) {
     return IP_ERROR_ALLOC_FAILED;
   }
+
+  u8 zeros[] = "0.0.0.0";
   
   ULONG size = sizeof(IP_ADAPTER_INFO);  
   if(GetAdaptersInfo(adapter_info, &size) == ERROR_BUFFER_OVERFLOW) {
@@ -226,15 +228,19 @@ IP_DEF Ip_Error ip_get_address(Ip ip) {
 
   int found = 0;
   while(!found && curr) {
+    IP_ADAPTER_INFO *c = curr;
+    curr = curr->Next;
     if (!curr->DhcpEnabled) {
       continue;
     }
-    found = 1;
 
     u64 len = ip_strlen(curr->IpAddressList.IpAddress.String);
+    if(len == (sizeof(zeros) - 1) && memcmp(curr->IpAddressList.IpAddress.String, zeros, len) == 0) {
+        continue;
+    }
+    found = 1;
     memcpy(ip, curr->IpAddressList.IpAddress.String, len + 1);
     
-    curr = curr->Next;
   }
 
   IP_FREE(adapter_info);

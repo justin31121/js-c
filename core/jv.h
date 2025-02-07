@@ -3,9 +3,9 @@
 
 // MIT License
 // 
-// Copyright (c) 2024 Justin Schartner
+// Copyright (c) 2024 Justin Su8tner
 // 
-// Permission is hereby granted, free of charge, to any person obtaining a copy
+// Permission is hereby granted, free of u8ge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
@@ -23,8 +23,10 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+typedef unsigned char Json_View_u8;
 typedef unsigned long long int Json_View_u64;
 
+#define u8 Json_View_u8
 #define u64 Json_View_u64
 
 #ifndef JV_ASSERT
@@ -36,10 +38,10 @@ typedef unsigned long long int Json_View_u64;
 #  define JV_DEF static inline
 #endif // JV_DEF
 
-JV_DEF int jv_isdigit(char c);
-JV_DEF int jv_isspace(char c);
-JV_DEF int jv_memcmp(const void *a, const void *b, u64 len);
-JV_DEF u64 jv_strlen(const char *cstr);
+JV_DEF int jv_isdigit(u8 c);
+JV_DEF int jv_isspace(u8 c);
+JV_DEF int jv_memcmp(void *a, void *b, u64 len);
+JV_DEF u64 jv_strlen(u8 *cstr);
 
 typedef enum{
   JV_TYPE_NULL,
@@ -52,7 +54,7 @@ typedef enum{
 }Json_View_Type;
 
 typedef struct{
-  const char *data;
+  u8 *data;
   u64 len;
   Json_View_Type type;
 }Json_View;
@@ -61,32 +63,32 @@ typedef struct{
 #define jv_arg(j) (int) (j).len, (j).data
 #define jv_from(d, l, t) (Json_View) { (d), (l), (t) }
 
-JV_DEF int jv_parse(Json_View *view, const char *data, u64 len);
-JV_DEF int jv_parse_number(Json_View *view, const char *data, u64 len);
-JV_DEF int jv_parse_string(Json_View *view, const char *data, u64 len);
-JV_DEF int jv_parse_array(Json_View *view, const char *data, u64 len);
-JV_DEF int jv_parse_object(Json_View *view, const char *data, u64 len);
-JV_DEF int jv_parse_impl(Json_View *view, const char *data, u64 len, const char *target, u64 target_len, Json_View_Type type);
+JV_DEF int jv_parse(Json_View *view, u8 *data, u64 len);
+JV_DEF int jv_parse_number(Json_View *view, u8 *data, u64 len);
+JV_DEF int jv_parse_string(Json_View *view, u8 *data, u64 len);
+JV_DEF int jv_parse_array(Json_View *view, u8 *data, u64 len);
+JV_DEF int jv_parse_object(Json_View *view, u8 *data, u64 len);
+JV_DEF int jv_parse_impl(Json_View *view, u8 *data, u64 len, u8 *target, u64 target_len, Json_View_Type type);
 
 JV_DEF int jv_array_next(Json_View array, Json_View *sub_view, u64 *off);
 JV_DEF int jv_array_get(Json_View array, u64 index, Json_View *value); 
 
 JV_DEF int jv_object_next(Json_View object, Json_View *key_view, Json_View *value_view, u64 *off);
-JV_DEF int jv_object_get(Json_View object, const char *key, Json_View *value);
+JV_DEF int jv_object_get(Json_View object, char *key, Json_View *value);
 
 #ifdef JV_IMPLEMENTATION
 
-JV_DEF int jv_isdigit(char c) {
+JV_DEF int jv_isdigit(u8 c) {
   return '0' <= c && c <= '9';
 }
 
-JV_DEF int jv_isspace(char c) {
+JV_DEF int jv_isspace(u8 c) {
   return c == ' ' || c == '\t' || c == '\n' || c == '\v' || c == '\f' || c == '\r';
 }
 
-JV_DEF int jv_memcmp(const void *a, const void *b, u64 len) {
-  const char *pa = a;
-  const char *pb = b;
+JV_DEF int jv_memcmp(void *a, void *b, u64 len) {
+  u8 *pa = a;
+  u8 *pb = b;
 
   int d = 0;
   while(!d && len) {
@@ -97,22 +99,22 @@ JV_DEF int jv_memcmp(const void *a, const void *b, u64 len) {
   return d;
 }
 
-JV_DEF u64 jv_strlen(const char *cstr) {
+JV_DEF u64 jv_strlen(u8 *cstr) {
   u64 len = 0;
   while(*cstr++) len++;
   return len;
 }
 
-static char jv_data_null[] = "null";
+static u8 jv_data_null[] = "null";
 #define jv_parse_null(v, d, l) jv_parse_impl((v), (d), (l), jv_data_null, sizeof(jv_data_null) - 1, JV_TYPE_NULL)
 
-static char jv_data_false[] = "false";
+static u8 jv_data_false[] = "false";
 #define jv_parse_false(v, d, l) jv_parse_impl((v), (d), (l), jv_data_false, sizeof(jv_data_false) - 1, JV_TYPE_FALSE)
 
-static char jv_data_true[] = "true";
+static u8 jv_data_true[] = "true";
 #define jv_parse_true(v, d, l) jv_parse_impl((v), (d), (l), jv_data_true, sizeof(jv_data_true) - 1, JV_TYPE_TRUE)
 
-JV_DEF int jv_parse(Json_View *view, const char *data, u64 len) {
+JV_DEF int jv_parse(Json_View *view, u8 *data, u64 len) {
 
   if(len == 0) return 0;
 
@@ -127,8 +129,8 @@ JV_DEF int jv_parse(Json_View *view, const char *data, u64 len) {
 
 }
 
-JV_DEF int jv_parse_impl(Json_View *view, const char *data, u64 len,
-			  const char *target, u64 target_len, Json_View_Type type) {
+JV_DEF int jv_parse_impl(Json_View *view, u8 *data, u64 len,
+			  u8 *target, u64 target_len, Json_View_Type type) {
   
   if(len < target_len) return 0;
   if(jv_memcmp(data, target, target_len) != 0) return 0;
@@ -137,7 +139,7 @@ JV_DEF int jv_parse_impl(Json_View *view, const char *data, u64 len,
   return 1;
 }
 
-JV_DEF int jv_parse_number(Json_View *view, const char *data, u64 len) {
+JV_DEF int jv_parse_number(Json_View *view, u8 *data, u64 len) {
 
   int encountered_dot = 0;
 
@@ -157,7 +159,7 @@ JV_DEF int jv_parse_number(Json_View *view, const char *data, u64 len) {
   return 1;
 }
 
-JV_DEF int jv_parse_string(Json_View *view, const char *data, u64 len) {
+JV_DEF int jv_parse_string(Json_View *view, u8 *data, u64 len) {
   
   u64 i = 1;
   while(1) {
@@ -171,7 +173,7 @@ JV_DEF int jv_parse_string(Json_View *view, const char *data, u64 len) {
   return 1;
 }
 
-JV_DEF int jv_parse_array(Json_View *view, const char *data, u64 len) {
+JV_DEF int jv_parse_array(Json_View *view, u8 *data, u64 len) {
 
   u64 i = 1;
   while(1) {
@@ -209,7 +211,7 @@ JV_DEF int jv_parse_array(Json_View *view, const char *data, u64 len) {
   return 1;
 }
 
-JV_DEF int jv_parse_object(Json_View *view, const char *data, u64 len) {
+JV_DEF int jv_parse_object(Json_View *view, u8 *data, u64 len) {
   
   u64 i = 1;
   while(1) {
@@ -399,9 +401,9 @@ JV_DEF int jv_array_get(Json_View array, u64 index, Json_View *value) {
   return 1;
 }
 
-JV_DEF int jv_object_get(Json_View object, const char *key, Json_View *value) {
+JV_DEF int jv_object_get(Json_View object, char *key, Json_View *value) {
 
-  u64 key_len = jv_strlen(key);
+  u64 key_len = jv_strlen((u8 *) key);
 
   Json_View key_view;
   u64 off = 0;
@@ -423,6 +425,7 @@ JV_DEF int jv_object_get(Json_View object, const char *key, Json_View *value) {
   
 #endif // JV_IMPLEMENTATION
 
+#undef u8
 #undef u64
 
 #endif // JV_H

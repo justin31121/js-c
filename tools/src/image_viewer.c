@@ -96,7 +96,7 @@ void load_file(char *path) {
     fprintf(stderr, "ERROR: Can not open '%s'\n", path); fflush(stderr);
     return; 
   }
-  
+
   last_path = path;
   frame_set_title(&frame, path);
 
@@ -117,6 +117,9 @@ void load_file(char *path) {
   } else {
     zoom = ((float) frame.height - 2 * PADDING) / (float) img_height;
   }
+
+  zoom = 1.0f;
+
   y_off = 0.f;
   x_off = 0.f;
   initial_zoom = zoom;

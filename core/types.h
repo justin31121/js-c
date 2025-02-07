@@ -26,6 +26,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#define da_append(xs, x) do{\
+    if((xs)->cap <= (xs)->len) {\
+        (xs)->cap = ((xs)->cap == 0) ? 256 : ((xs)->cap << 1);\
+        (xs)->data = realloc((xs)->data, sizeof(*((xs)->data)) * (xs)->cap);\
+        if(!((xs)->data)) panic("realloc failed");\
+    }\
+    (xs)->data[(xs)->len++] = (x);\
+  }while(0)
+
 #define here_fmt "%s:%d:"
 #define here_arg() __FILE__, __LINE__
 
