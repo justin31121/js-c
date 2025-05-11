@@ -749,6 +749,9 @@ PNM_DEF int pnm_reader_relayout_ascii(Pnm_Reader *r, u32 width, u32 height, Pnm_
 	for(u32 i=0;i<width*height;i++) {
 
 		switch(format) {
+
+            case PNM_FORMAT_NONE: break;
+
 			case PNM_FORMAT_P1: {
 				// 0 0 0 0 1 0
 				// 0 0 0 0 1 0
@@ -1041,11 +1044,15 @@ PNM_DEF void pnm_writer_flush(Pnm_Writer *w) {
 
 #else
 			int n = write(f->fd, w->buf, w->buf_len);
-			if(n != w->buf_len) {
+            if(n <= 0) {
+                w->error = PNM_ERROR_IO;
+				return;
+            }
+			u64 written = (u64) n;
+            if(written != w->buf_len) {
 				w->error = PNM_ERROR_IO;
 				return;
 			}
-			u64 written = (u64) n;
 
 			w->buf_len = 0;
 
