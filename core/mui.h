@@ -461,27 +461,40 @@ MUI_DEF void mui_text(Mui *m,
   Mui_Vec2f p = mui_vec2f(pos.x, pos.y);
   for(u64 i=0;i<text_len;i++) {
     u8 c = text[i];
-    if(c > 127) c = '?';
-  
-    Mui_Glyph g = m->font.glyphs[c - 32];
-    f32 w = g.x1 - g.x0;
-    f32 h = g.y1 - g.y0;
-    
-    if(w <= 0 ||h <= 0) {
-      continue;
+
+    if(c == '\t')  {
+      Mui_Glyph g = m->font.glyphs[' ' - 32];
+      p.x += 4 * g.xadvance;
+      
+    } else {
+      if(c == ' ') {
+	// pass
+      } else {
+	if(!(0x21 <= c && c <= 0x7e)) {
+	  c = '?';
+	}	
+      }
+      
+      Mui_Glyph g = m->font.glyphs[c - 32];
+      f32 w = g.x1 - g.x0;
+      f32 h = g.y1 - g.y0;
+
+      if(w <= 0 ||h <= 0) {
+      
+      } else {
+	m->p1 = mui_vec2f(p.x + g.dx, p.y + g.dy);     m->c1 = color; m->uv1 = mui_vec2f(g.x0, g.y0);
+	m->p2 = mui_vec2f(p.x + g.dx + w, p.y + g.dy); m->c2 = color; m->uv2 = mui_vec2f(g.x0 + w, g.y0);
+	m->p3 = mui_vec2f(p.x + g.dx, p.y + g.dy + h); m->c3 = color; m->uv3 = mui_vec2f(g.x0, g.y0 + h);
+	m->render(m->render_userdata, m);
+
+	m->p2 = mui_vec2f(p.x + g.dx + w, p.y + g.dy);     m->c2 = color; m->uv2 = mui_vec2f(g.x0 + w, g.y0);
+	m->p3 = mui_vec2f(p.x + g.dx, p.y + g.dy + h);     m->c3 = color; m->uv3 = mui_vec2f(g.x0, g.y0 + h);
+	m->p1 = mui_vec2f(p.x + g.dx + w, p.y + g.dy + h); m->c1 = color; m->uv1 = mui_vec2f(g.x0 + w, g.y0 + h);
+	m->render(m->render_userdata, m);
+      }
+
+      p.x += g.xadvance;
     }
-    
-    m->p1 = mui_vec2f(p.x + g.dx, p.y + g.dy);     m->c1 = color; m->uv1 = mui_vec2f(g.x0, g.y0);
-    m->p2 = mui_vec2f(p.x + g.dx + w, p.y + g.dy); m->c2 = color; m->uv2 = mui_vec2f(g.x0 + w, g.y0);
-    m->p3 = mui_vec2f(p.x + g.dx, p.y + g.dy + h); m->c3 = color; m->uv3 = mui_vec2f(g.x0, g.y0 + h);
-    m->render(m->render_userdata, m);
-
-    m->p2 = mui_vec2f(p.x + g.dx + w, p.y + g.dy);     m->c2 = color; m->uv2 = mui_vec2f(g.x0 + w, g.y0);
-    m->p3 = mui_vec2f(p.x + g.dx, p.y + g.dy + h);     m->c3 = color; m->uv3 = mui_vec2f(g.x0, g.y0 + h);
-    m->p1 = mui_vec2f(p.x + g.dx + w, p.y + g.dy + h); m->c1 = color; m->uv1 = mui_vec2f(g.x0 + w, g.y0 + h);
-    m->render(m->render_userdata, m);      
-
-    p.x += g.xadvance;
   }
 
 }
@@ -496,18 +509,26 @@ MUI_DEF void mui_text_measure(Mui *m,
 
   for(u64 i=0;i<text_len;i++) {
       u8 c = text[i];
-      if(c > 127) c = '?';
-  
-      Mui_Glyph g = m->font.glyphs[c - 32];
-      f32 w = g.x1 - g.x0;
-      f32 h = g.y1 - g.y0;
 
-      if(w <= 0 || h <= 0) {
-	continue;
-      }
+      if(c == '\t')  {
+	Mui_Glyph g = m->font.glyphs[' ' - 32];
+	size->x += 4 * g.xadvance;
+      } else {
+	if(c == ' ') {
+	  // pass
+	} else {
+	  if(!(0x21 <= c && c <= 0x7e)) {
+	    c = '?';
+	  }	
+	}
+
+	Mui_Glyph g = m->font.glyphs[c - 32];
+	f32 w = g.x1 - g.x0;
+	f32 h = g.y1 - g.y0;
       
-      size->x += g.xadvance;
-      if(h > size->y) size->y = h;
+	size->x += g.xadvance;
+	if(h > size->y) size->y = h;
+      }
   }
   
 }
