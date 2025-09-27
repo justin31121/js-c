@@ -1039,8 +1039,8 @@ PNM_DEF void pnm_writer_flush(Pnm_Writer *w) {
 
 			w->buf_len = 0;
 
-			f->size += n;
-			f->pos  += n;
+			f->len += written;
+			f->pos += written;
 
 #else
 			int n = write(f->fd, w->buf, w->buf_len);

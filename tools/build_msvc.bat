@@ -1,7 +1,7 @@
 mkdir bin 2> nul
 
 ::set FLAGS=/W4
-set FLAGS=
+set FLAGS=/I..
 
 cl %FLAGS% /Fe:bin\shot src\shot.c
 cl %FLAGS% /Fe:bin\fttp src\fttp.c ws2_32.lib Iphlpapi.lib
